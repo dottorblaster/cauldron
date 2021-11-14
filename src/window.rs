@@ -75,7 +75,7 @@ mod imp {
             let webview =
                 WebView::new_with_context_and_user_content_manager(&context, &content_manager);
 
-            self.oauth_box.pack_start(&webview, true, true, 0);
+            self.oauth_box.append(&webview);
             webview.load_uri("https://dottorblaster.it");
         }
     }

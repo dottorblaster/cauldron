@@ -55,10 +55,10 @@
         <child>
           <object class="GtkTextView" id="selected_article"/>
         </child>
-        <child>
-          <object class="GtkBox" id="oauth_box"/>
-        </child> 
       </object>
+    </child>
+    <child>
+      <object class="GtkBox" id="oauth_box" />
     </child>
   </template>
 </interface>

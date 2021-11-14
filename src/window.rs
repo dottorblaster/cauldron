@@ -15,6 +15,10 @@ mod imp {
     pub struct CauldronWindow {
         #[template_child]
         pub headerbar: TemplateChild<gtk::HeaderBar>,
+        #[template_child]
+        pub article_list: TemplateChild<gtk::ListView>,
+        #[template_child]
+        pub selected_article: TemplateChild<gtk::TextView>,
         pub settings: gio::Settings,
     }
 
@@ -23,6 +27,8 @@ mod imp {
             Self {
                 headerbar: TemplateChild::default(),
                 settings: gio::Settings::new(APP_ID),
+                article_list: TemplateChild::default(),
+                selected_article: TemplateChild::default(),
             }
         }
     }

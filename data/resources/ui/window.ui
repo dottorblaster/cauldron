@@ -31,10 +31,30 @@
     </child>
     <child>
       <object class="GtkLabel" id="label">
-        <property name="label" translatable="yes">Hello world!</property>
+        <property name="label" translatable="yes">HELLOOOO!</property>
         <style>
           <class name="title-header"/>
         </style>
+      </object>
+    </child>
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">horizontal</property>
+        <property name="spacing">12</property>
+        <child>
+          <object class="GtkScrolledWindow">
+            <property name="hscrollbar-policy">never</property>
+          <style>
+              <class name="scrolled-list"/>
+          </style>
+          <child>
+              <object class="GtkListView" id="article_list"/>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkTextView" id="selected_article"/>
+        </child>
       </object>
     </child>
   </template>

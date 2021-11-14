@@ -2,3 +2,7 @@
   font-size: 36px;
   font-weight: bold;
 }
+
+.scrolled-list {
+  min-width: 240px;
+}

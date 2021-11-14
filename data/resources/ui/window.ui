@@ -49,12 +49,15 @@
           </style>
           <child>
               <object class="GtkListView" id="article_list"/>
-            </child>
+          </child>
           </object>
         </child>
         <child>
           <object class="GtkTextView" id="selected_article"/>
         </child>
+        <child>
+          <object class="GtkBox" id="oauth_box"/>
+        </child> 
       </object>
     </child>
   </template>

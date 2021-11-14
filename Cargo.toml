@@ -10,3 +10,4 @@ pretty_env_logger = "0.4"
 gettext-rs = { version = "0.7", features = ["gettext-system"] }
 once_cell = "1.5"
 gtk = {version = "0.2", package = "gtk4"}
+webkit2gtk = { version = "0.15", features = ["v2_22"] }

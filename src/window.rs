@@ -1,9 +1,15 @@
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
+use webkit2gtk::{
+    traits::WebViewExt, LoadEvent, UserContentManager, WebContext, WebView, WebViewExtManual,
+};
 
 use crate::application::Cauldron;
 use crate::config::{APP_ID, PROFILE};
+
+const GTK_BUILDER_ERROR: &str =
+    "Could not build GTK widget from UI file. This should never happen!";
 
 mod imp {
     use super::*;
@@ -19,6 +25,8 @@ mod imp {
         pub article_list: TemplateChild<gtk::ListView>,
         #[template_child]
         pub selected_article: TemplateChild<gtk::TextView>,
+        #[template_child]
+        pub oauth_box: TemplateChild<gtk::Box>,
         pub settings: gio::Settings,
     }
 
@@ -29,6 +37,7 @@ mod imp {
                 settings: gio::Settings::new(APP_ID),
                 article_list: TemplateChild::default(),
                 selected_article: TemplateChild::default(),
+                oauth_box: TemplateChild::default(),
             }
         }
     }
@@ -60,6 +69,14 @@ mod imp {
 
             // Load latest window state
             obj.load_window_size();
+
+            let context = WebContext::default().expect(GTK_BUILDER_ERROR);
+            let content_manager = UserContentManager::new();
+            let webview =
+                WebView::new_with_context_and_user_content_manager(&context, &content_manager);
+
+            self.oauth_box.pack_start(&webview, true, true, 0);
+            webview.load_uri("https://dottorblaster.it");
         }
     }
 

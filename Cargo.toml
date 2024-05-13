@@ -13,3 +13,9 @@ gettext-rs = { version = "0.7", features = ["gettext-system"] }
 relm4 = { version = "0.8.1", features = ["libadwaita", "gnome_46"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3"
+anyhow = "1.0.83"
+oauth2 = "4.4.2"
+open = "5.1.2"
+reqwest = { version = "0.12.4", features = ["blocking", "json"] }
+serde = "1.0.201"
+url = "2.5.0"

@@ -5,12 +5,18 @@ use relm4::{
 };
 
 use gtk::prelude::{
-    ApplicationExt, ApplicationWindowExt, GtkWindowExt, OrientableExt, SettingsExt, WidgetExt,
+    ApplicationExt, ApplicationWindowExt, ButtonExt, GtkWindowExt, OrientableExt, SettingsExt,
+    WidgetExt,
 };
 use gtk::{gio, glib};
+use gio::prelude::ApplicationExtManual;
+
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_TYPE};
+use url::form_urlencoded;
 
 use crate::config::{APP_ID, PROFILE};
 use crate::modals::about::AboutDialog;
+use crate::types::PocketCodeResponse;
 
 pub(super) struct App {
     about_dialog: Controller<AboutDialog>,
@@ -19,6 +25,8 @@ pub(super) struct App {
 #[derive(Debug)]
 pub(super) enum AppMsg {
     Quit,
+    StartLogin,
+    Open,
 }
 
 relm4::new_action_group!(pub(super) WindowActionGroup, "win");
@@ -78,10 +86,8 @@ impl SimpleComponent for App {
                     }
                 },
 
-                gtk::Label {
-                    set_label: "Hello world!",
-                    add_css_class: "title-header",
-                    set_vexpand: true,
+                gtk::Button::with_label("Login") {
+                    connect_clicked => AppMsg::StartLogin,
                 }
             }
 
@@ -93,6 +99,11 @@ impl SimpleComponent for App {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
+        let open_sender = sender.clone();
+        main_application().connect_open(move |_, _, _| {
+            open_sender.input(AppMsg::Open);
+        });
+
         let about_dialog = AboutDialog::builder()
             .transient_for(&root)
             .launch(())
@@ -130,6 +141,43 @@ impl SimpleComponent for App {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
             AppMsg::Quit => main_application().quit(),
+            AppMsg::StartLogin => {
+                let client = reqwest::blocking::Client::new();
+                let mut map = std::collections::HashMap::new();
+
+                let mut headers = HeaderMap::new();
+                headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+                headers.insert(
+                    HeaderName::from_static("x-accept"),
+                    HeaderValue::from_static("application/json"),
+                );
+
+                map.insert("consumer_key", "99536-5a753dbe04d6ade99e80b4ab");
+                map.insert("redirect_uri", "pocket://kekw");
+
+                let res = client
+                    .post("https://getpocket.com/v3/oauth/request")
+                    .headers(headers)
+                    .json(&map)
+                    .send()
+                    .expect("Unexpected error");
+
+                let code_response: PocketCodeResponse =
+                    res.json().expect("Could not decode the response");
+                println!("{:?}", code_response.code);
+
+                let encoded_pocket_params: String = form_urlencoded::Serializer::new(String::new())
+                    .append_pair("request_token", &code_response.code)
+                    .append_pair("redirect_uri", "pocket://kekw")
+                    .finish();
+
+                let pocket_uri = format!(
+                    "https://getpocket.com/auth/authorize?{}",
+                    encoded_pocket_params
+                );
+                open::that(pocket_uri).expect("Could not open the browser");
+            },
+            AppMsg::Open => todo!(),
         }
     }
 

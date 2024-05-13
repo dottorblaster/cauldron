@@ -2,6 +2,7 @@
 mod config;
 mod app;
 mod modals;
+mod types;
 
 use config::{APP_ID, GETTEXT_PACKAGE, LOCALEDIR, RESOURCES_FILE};
 use gettextrs::{gettext, LocaleCategory};

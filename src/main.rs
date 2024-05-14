@@ -41,6 +41,7 @@ fn main() {
 
     let app = main_application();
     app.set_resource_base_path(Some("/it/dottorblaster/cauldron/"));
+    app.set_application_id(Some(APP_ID));
     app.set_flags(gio::ApplicationFlags::HANDLES_OPEN);
 
     let mut actions = RelmActionGroup::<AppActionGroup>::new();

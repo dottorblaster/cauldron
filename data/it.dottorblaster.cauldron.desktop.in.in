@@ -10,5 +10,4 @@ Keywords=GNOME;GTK;Nework;Feed;Pocket;
 # Translators: Do NOT translate or transliterate this text (this is an icon file name)!
 Icon=@icon@
 StartupNotify=true
-DBusActivatable=true
 MimeType=x-scheme-handler/pocket;

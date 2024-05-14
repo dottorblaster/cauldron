@@ -2,7 +2,7 @@
 Name=Cauldron
 Comment=Pocket native client for GNOME
 Type=Application
-Exec=cauldron
+Exec=cauldron %u
 Terminal=false
 Categories=GNOME;GTK;Network;Feed;
 # Translators: Search terms to find this application. Do NOT translate or localize the semicolons! The list MUST also end with a semicolon!
@@ -10,4 +10,5 @@ Keywords=GNOME;GTK;Nework;Feed;Pocket;
 # Translators: Do NOT translate or transliterate this text (this is an icon file name)!
 Icon=@icon@
 StartupNotify=true
+DBusActivatable=true
 MimeType=x-scheme-handler/pocket;

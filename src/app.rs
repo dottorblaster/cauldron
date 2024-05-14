@@ -4,12 +4,12 @@ use relm4::{
     Controller, SimpleComponent,
 };
 
+use gio::prelude::{ApplicationExtManual, FileExt};
 use gtk::prelude::{
     ApplicationExt, ApplicationWindowExt, ButtonExt, GtkWindowExt, OrientableExt, SettingsExt,
     WidgetExt,
 };
 use gtk::{gio, glib};
-use gio::prelude::ApplicationExtManual;
 
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_TYPE};
 use url::form_urlencoded;
@@ -26,7 +26,7 @@ pub(super) struct App {
 pub(super) enum AppMsg {
     Quit,
     StartLogin,
-    Open,
+    Open(String),
 }
 
 relm4::new_action_group!(pub(super) WindowActionGroup, "win");
@@ -100,8 +100,16 @@ impl SimpleComponent for App {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let open_sender = sender.clone();
-        main_application().connect_open(move |_, _, _| {
-            open_sender.input(AppMsg::Open);
+        main_application().connect_open(move |_, files, _| {
+            if let Some(uri) = files.first().map(|f| f.uri()) {
+                open_sender.input(AppMsg::Open(uri.to_string()));
+            } else {
+                println!("No URI to open");
+            }
+        });
+
+        main_application().connect_activate(|_| {
+            println!("KEKW");
         });
 
         let about_dialog = AboutDialog::builder()
@@ -176,8 +184,10 @@ impl SimpleComponent for App {
                     encoded_pocket_params
                 );
                 open::that(pocket_uri).expect("Could not open the browser");
-            },
-            AppMsg::Open => todo!(),
+            }
+            AppMsg::Open(uri) => {
+                println!("{}", uri);
+            }
         }
     }
 

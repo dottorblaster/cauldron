@@ -6,7 +6,7 @@ mod types;
 
 use config::{APP_ID, GETTEXT_PACKAGE, LOCALEDIR, RESOURCES_FILE};
 use gettextrs::{gettext, LocaleCategory};
-use gtk::prelude::ApplicationExt;
+use gtk::prelude::{ApplicationExt, GtkApplicationExt, GtkWindowExt};
 use gtk::{gio, glib};
 use relm4::{
     actions::{AccelsPlus, RelmAction, RelmActionGroup},
@@ -41,6 +41,7 @@ fn main() {
 
     let app = main_application();
     app.set_resource_base_path(Some("/it/dottorblaster/cauldron/"));
+    app.set_flags(gio::ApplicationFlags::HANDLES_OPEN);
 
     let mut actions = RelmActionGroup::<AppActionGroup>::new();
 
@@ -64,5 +65,15 @@ fn main() {
         )
         .unwrap();
     app.set_global_css(&glib::GString::from_utf8_checked(data.to_vec()).unwrap());
-    app.visible_on_activate(false).run::<App>(());
+
+    match main_application().windows().first() {
+        None => {
+            println!("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+            app.visible_on_activate(false).run::<App>(());
+        }
+        Some(window) => {
+            println!("Windows present");
+            window.present();
+        }
+    }
 }

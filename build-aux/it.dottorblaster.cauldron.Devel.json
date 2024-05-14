@@ -13,6 +13,7 @@
         "--socket=fallback-x11",
         "--socket=wayland",
         "--device=dri",
+        "--share=network",
         "--env=RUST_LOG=cauldron=debug",
         "--env=G_MESSAGES_DEBUG=none",
         "--env=RUST_BACKTRACE=1"

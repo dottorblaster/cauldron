@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=@application_id@
+Exec=@bindir@/cauldron --gapplication-service
+

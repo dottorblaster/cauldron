@@ -13,5 +13,9 @@
       <default>false</default>
       <summary>Window maximized state</summary>
     </key>
+    <key name="access-token" type="s">
+      <default>""</default>
+      <summary>Access token</summary>
+    </key>
   </schema>
 </schemalist>

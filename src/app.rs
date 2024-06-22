@@ -20,6 +20,8 @@ use crate::types::PocketCodeResponse;
 
 pub(super) struct App {
     about_dialog: Controller<AboutDialog>,
+    auth_code: String,
+    access_token: String,
 }
 
 #[derive(Debug)]
@@ -108,16 +110,15 @@ impl SimpleComponent for App {
             }
         });
 
-        main_application().connect_activate(|_| {
-            println!("KEKW");
-        });
+        let auth_code = String::new();
+        let access_token = String::new();
 
         let about_dialog = AboutDialog::builder()
             .transient_for(&root)
             .launch(())
             .detach();
 
-        let model = Self { about_dialog };
+        let model = Self { about_dialog, auth_code, access_token };
 
         let widgets = view_output!();
 
@@ -184,9 +185,11 @@ impl SimpleComponent for App {
                     encoded_pocket_params
                 );
                 open::that(pocket_uri).expect("Could not open the browser");
+                self.auth_code = code_response.code.to_owned();
             }
             AppMsg::Open(uri) => {
                 println!("{}", uri);
+                println!("auth code: {}", self.auth_code);
             }
         }
     }

@@ -4,6 +4,7 @@ use relm4::{
     Controller, SimpleComponent,
 };
 
+use adw::prelude::PreferencesRowExt;
 use gio::prelude::{ApplicationExtManual, FileExt};
 use gtk::prelude::{
     ApplicationExt, ApplicationWindowExt, ButtonExt, GtkWindowExt, OrientableExt, SettingsExt,
@@ -11,17 +12,19 @@ use gtk::prelude::{
 };
 use gtk::{gio, glib};
 
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_TYPE};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
 use url::form_urlencoded;
 
 use crate::config::{APP_ID, PROFILE};
 use crate::modals::about::AboutDialog;
-use crate::types::PocketCodeResponse;
+use crate::types::{PocketAccessTokenRequest, PocketAccessTokenResponse, PocketCodeResponse};
 
 pub(super) struct App {
     about_dialog: Controller<AboutDialog>,
     auth_code: String,
     access_token: String,
+    username: String,
+    articles: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -77,22 +80,85 @@ impl SimpleComponent for App {
                 } else {
                     None
                 },
+            adw::Leaflet{
+                gtk::Box {
+                    set_orientation: gtk::Orientation::Vertical,
 
-            gtk::Box {
-                set_orientation: gtk::Orientation::Vertical,
+                    adw::HeaderBar {
+                        pack_end = &gtk::MenuButton {
+                            set_icon_name: "open-menu-symbolic",
+                            set_menu_model: Some(&primary_menu),
+                        },
 
-                adw::HeaderBar {
-                    pack_end = &gtk::MenuButton {
-                        set_icon_name: "open-menu-symbolic",
-                        set_menu_model: Some(&primary_menu),
+                    },
+
+                    gtk::Button::with_label("Login") {
+                        #[watch]
+                        set_visible: model.access_token.is_empty(),
+                        connect_clicked => AppMsg::StartLogin,
+                    },
+
+                    gtk::ListBox {
+                        set_visible: !model.access_token.is_empty(),
+                        set_selection_mode: gtk::SelectionMode::Single,
+                        add_css_class: "navigation-sidebar",
+
+                        adw::ActionRow {
+                            set_title: "Section 1",
+                        },
+
+                        adw::ActionRow {
+                            set_title: "Section 2",
+                        },
+
+                        adw::ActionRow {
+                            set_title: "Section 3",
+                        },
+
+                        append = {model.articles.iter().map(|title| adw::ActionRow {set_title: title}).collect()},
+
+                        connect_row_selected[sender] => move |_, row| {
+
+                        }
+                    }
+
+                },
+
+                append = &gtk::Separator {
+                    set_orientation: gtk::Orientation::Vertical,
+                } -> {
+                    set_navigatable: false,
+                },
+
+                gtk::Box {
+                    set_orientation: gtk::Orientation::Vertical,
+                    set_hexpand: true,
+
+                    #[name = "content_header"]
+                    adw::HeaderBar {
+                        #[name = "back_button"]
+                        pack_start = &gtk::Button {
+                            set_icon_name: "go-previous-symbolic",
+                            connect_clicked => move |_| {
+                            }
+                        },
+
+                        #[wrap(Some)]
+                        set_title_widget = &adw::WindowTitle {
+                            set_title: "Content",
+                        }
+                    },
+
+                    gtk::Label {
+                        add_css_class: "title-1",
+                        set_vexpand: true,
+
+                        #[watch]
+                        set_text: "Kekw",
                     }
                 },
 
-                gtk::Button::with_label("Login") {
-                    connect_clicked => AppMsg::StartLogin,
-                }
-            }
-
+            },
         }
     }
 
@@ -112,13 +178,21 @@ impl SimpleComponent for App {
 
         let auth_code = String::new();
         let access_token = String::new();
+        let username = String::new();
+        let articles = vec![];
 
         let about_dialog = AboutDialog::builder()
             .transient_for(&root)
             .launch(())
             .detach();
 
-        let model = Self { about_dialog, auth_code, access_token };
+        let model = Self {
+            about_dialog,
+            auth_code,
+            access_token,
+            username,
+            articles,
+        };
 
         let widgets = view_output!();
 
@@ -190,6 +264,32 @@ impl SimpleComponent for App {
             AppMsg::Open(uri) => {
                 println!("{}", uri);
                 println!("auth code: {}", self.auth_code);
+
+                let request_params = PocketAccessTokenRequest {
+                    consumer_key: "99536-5a753dbe04d6ade99e80b4ab".to_owned(),
+                    code: self.auth_code.clone(),
+                };
+                let mut headers = HeaderMap::new();
+                headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+                headers.insert(
+                    HeaderName::from_static("x-accept"),
+                    HeaderValue::from_static("application/json"),
+                );
+
+                let client = reqwest::blocking::Client::new();
+
+                let res = client
+                    .post("https://getpocket.com/v3/oauth/authorize")
+                    .headers(headers)
+                    .json(&request_params)
+                    .send()
+                    .expect("Unexpected error");
+
+                let code_response: PocketAccessTokenResponse =
+                    res.json().expect("Could not decode the response");
+
+                self.username = code_response.username;
+                self.access_token = code_response.access_token;
             }
         }
     }

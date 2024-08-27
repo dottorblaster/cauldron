@@ -17,7 +17,9 @@ use url::form_urlencoded;
 
 use crate::config::{APP_ID, PROFILE};
 use crate::modals::about::AboutDialog;
-use crate::types::{PocketAccessTokenRequest, PocketAccessTokenResponse, PocketCodeResponse};
+use crate::types::{
+    PocketAccessTokenRequest, PocketAccessTokenResponse, PocketCodeResponse, PocketEntriesRequest,
+};
 
 pub(super) struct App {
     about_dialog: Controller<AboutDialog>,
@@ -99,6 +101,7 @@ impl SimpleComponent for App {
                     },
 
                     gtk::ListBox {
+                        #[watch]
                         set_visible: !model.access_token.is_empty(),
                         set_selection_mode: gtk::SelectionMode::Single,
                         add_css_class: "navigation-sidebar",
@@ -115,7 +118,6 @@ impl SimpleComponent for App {
                             set_title: "Section 3",
                         },
 
-                        append = {model.articles.iter().map(|title| adw::ActionRow {set_title: title}).collect()},
 
                         connect_row_selected[sender] => move |_, row| {
 
@@ -259,7 +261,7 @@ impl SimpleComponent for App {
                     encoded_pocket_params
                 );
                 open::that(pocket_uri).expect("Could not open the browser");
-                self.auth_code = code_response.code.to_owned();
+                code_response.code.clone_into(&mut self.auth_code);
             }
             AppMsg::Open(uri) => {
                 println!("{}", uri);
@@ -280,7 +282,7 @@ impl SimpleComponent for App {
 
                 let res = client
                     .post("https://getpocket.com/v3/oauth/authorize")
-                    .headers(headers)
+                    .headers(headers.clone())
                     .json(&request_params)
                     .send()
                     .expect("Unexpected error");
@@ -290,6 +292,23 @@ impl SimpleComponent for App {
 
                 self.username = code_response.username;
                 self.access_token = code_response.access_token;
+
+                let request_params = PocketEntriesRequest {
+                    consumer_key: "99536-5a753dbe04d6ade99e80b4ab".to_owned(),
+                    access_token: self.access_token.clone(),
+                    count: "30".to_owned(),
+                };
+
+                let entries: serde_json::Value = client
+                    .post("https://getpocket.com/v3/get")
+                    .headers(headers)
+                    .json(&request_params)
+                    .send()
+                    .expect("Unexpected error")
+                    .json()
+                    .expect("lmao");
+
+                println!("{}", entries);
             }
         }
     }

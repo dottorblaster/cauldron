@@ -16,3 +16,10 @@ pub struct PocketAccessTokenResponse {
     pub access_token: String,
     pub username: String,
 }
+
+#[derive(Serialize)]
+pub struct PocketEntriesRequest {
+    pub consumer_key: String,
+    pub access_token: String,
+    pub count: String,
+}

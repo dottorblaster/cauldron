@@ -1,10 +1,11 @@
 use relm4::{
     actions::{RelmAction, RelmActionGroup},
-    adw, gtk, main_application, Component, ComponentController, ComponentParts, ComponentSender,
+    adw,
+    factory::FactoryVecDeque,
+    gtk, main_application, Component, ComponentController, ComponentParts, ComponentSender,
     Controller, SimpleComponent,
 };
 
-use adw::prelude::PreferencesRowExt;
 use gio::prelude::{ApplicationExtManual, FileExt};
 use gtk::prelude::{
     ApplicationExt, ApplicationWindowExt, ButtonExt, GtkWindowExt, OrientableExt, SettingsExt,
@@ -15,6 +16,7 @@ use gtk::{gio, glib};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
 use url::form_urlencoded;
 
+use crate::article::{Article, ArticleOutput};
 use crate::config::{APP_ID, PROFILE};
 use crate::modals::about::AboutDialog;
 use crate::types::{
@@ -26,7 +28,7 @@ pub(super) struct App {
     auth_code: String,
     access_token: String,
     username: String,
-    articles: Vec<String>,
+    articles: FactoryVecDeque<Article>,
 }
 
 #[derive(Debug)]
@@ -34,6 +36,7 @@ pub(super) enum AppMsg {
     Quit,
     StartLogin,
     Open(String),
+    ArticleSelected(String),
 }
 
 relm4::new_action_group!(pub(super) WindowActionGroup, "win");
@@ -100,28 +103,12 @@ impl SimpleComponent for App {
                         connect_clicked => AppMsg::StartLogin,
                     },
 
-                    gtk::ListBox {
+                    #[local_ref]
+                    articles_list_box -> gtk::ListBox {
                         #[watch]
                         set_visible: !model.access_token.is_empty(),
                         set_selection_mode: gtk::SelectionMode::Single,
                         add_css_class: "navigation-sidebar",
-
-                        adw::ActionRow {
-                            set_title: "Section 1",
-                        },
-
-                        adw::ActionRow {
-                            set_title: "Section 2",
-                        },
-
-                        adw::ActionRow {
-                            set_title: "Section 3",
-                        },
-
-
-                        connect_row_selected[sender] => move |_, row| {
-
-                        }
                     }
 
                 },
@@ -181,7 +168,11 @@ impl SimpleComponent for App {
         let auth_code = String::new();
         let access_token = String::new();
         let username = String::new();
-        let articles = vec![];
+        let articles = FactoryVecDeque::builder()
+            .launch(gtk::ListBox::default())
+            .forward(sender.input_sender(), |output| match output {
+                ArticleOutput::ArticleSelected(uri) => AppMsg::ArticleSelected(uri),
+            });
 
         let about_dialog = AboutDialog::builder()
             .transient_for(&root)
@@ -195,6 +186,8 @@ impl SimpleComponent for App {
             username,
             articles,
         };
+
+        let articles_list_box = model.articles.widget();
 
         let widgets = view_output!();
 
@@ -226,6 +219,9 @@ impl SimpleComponent for App {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
             AppMsg::Quit => main_application().quit(),
+            AppMsg::ArticleSelected(uri) => {
+                println!("{}", uri)
+            }
             AppMsg::StartLogin => {
                 let client = reqwest::blocking::Client::new();
                 let mut map = std::collections::HashMap::new();
@@ -309,6 +305,14 @@ impl SimpleComponent for App {
                     .expect("lmao");
 
                 println!("{}", entries);
+
+                self.articles
+                    .guard()
+                    .push_back(("kekw".to_owned(), "asd".to_owned()));
+
+                self.articles
+                    .guard()
+                    .push_back(("LELW".to_owned(), "AAA".to_owned()));
             }
         }
     }

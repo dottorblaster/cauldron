@@ -313,7 +313,6 @@ impl SimpleComponent for App {
                 self.articles
                     .guard()
                     .push_back(("LELW".to_owned(), "AAA".to_owned()));
-
             }
         }
     }

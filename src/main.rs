@@ -1,6 +1,7 @@
 #[rustfmt::skip]
 mod config;
 mod app;
+mod article;
 mod modals;
 mod types;
 

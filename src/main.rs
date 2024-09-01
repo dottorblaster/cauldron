@@ -3,7 +3,7 @@ mod config;
 mod app;
 mod article;
 mod modals;
-mod types;
+mod network;
 
 use config::{APP_ID, GETTEXT_PACKAGE, LOCALEDIR, RESOURCES_FILE};
 use gettextrs::{gettext, LocaleCategory};

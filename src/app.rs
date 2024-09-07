@@ -13,15 +13,10 @@ use gtk::prelude::{
 };
 use gtk::{gio, glib};
 
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
-use url::form_urlencoded;
-
 use crate::article::{Article, ArticleOutput};
 use crate::config::{APP_ID, PROFILE};
 use crate::modals::about::AboutDialog;
-use crate::types::{
-    PocketAccessTokenRequest, PocketAccessTokenResponse, PocketCodeResponse, PocketEntriesRequest,
-};
+use crate::network;
 
 pub(super) struct App {
     about_dialog: Controller<AboutDialog>,
@@ -223,87 +218,24 @@ impl SimpleComponent for App {
                 println!("{}", uri)
             }
             AppMsg::StartLogin => {
-                let client = reqwest::blocking::Client::new();
-                let mut map = std::collections::HashMap::new();
-
-                let mut headers = HeaderMap::new();
-                headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-                headers.insert(
-                    HeaderName::from_static("x-accept"),
-                    HeaderValue::from_static("application/json"),
-                );
-
-                map.insert("consumer_key", "99536-5a753dbe04d6ade99e80b4ab");
-                map.insert("redirect_uri", "pocket://kekw");
-
-                let res = client
-                    .post("https://getpocket.com/v3/oauth/request")
-                    .headers(headers)
-                    .json(&map)
-                    .send()
-                    .expect("Unexpected error");
-
-                let code_response: PocketCodeResponse =
-                    res.json().expect("Could not decode the response");
+                let client = network::client();
+                let code_response = network::initiate_login(&client);
                 println!("{:?}", code_response.code);
 
-                let encoded_pocket_params: String = form_urlencoded::Serializer::new(String::new())
-                    .append_pair("request_token", &code_response.code)
-                    .append_pair("redirect_uri", "pocket://kekw")
-                    .finish();
+                let pocket_uri = network::encode_pocket_uri(&code_response.code);
 
-                let pocket_uri = format!(
-                    "https://getpocket.com/auth/authorize?{}",
-                    encoded_pocket_params
-                );
                 open::that(pocket_uri).expect("Could not open the browser");
                 code_response.code.clone_into(&mut self.auth_code);
             }
-            AppMsg::Open(uri) => {
-                println!("{}", uri);
-                println!("auth code: {}", self.auth_code);
+            AppMsg::Open(_uri) => {
+                let client = network::client();
 
-                let request_params = PocketAccessTokenRequest {
-                    consumer_key: "99536-5a753dbe04d6ade99e80b4ab".to_owned(),
-                    code: self.auth_code.clone(),
-                };
-                let mut headers = HeaderMap::new();
-                headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-                headers.insert(
-                    HeaderName::from_static("x-accept"),
-                    HeaderValue::from_static("application/json"),
-                );
+                let authorization_response = network::authorize(&client, &self.auth_code);
 
-                let client = reqwest::blocking::Client::new();
+                self.username = authorization_response.username;
+                self.access_token = authorization_response.access_token;
 
-                let res = client
-                    .post("https://getpocket.com/v3/oauth/authorize")
-                    .headers(headers.clone())
-                    .json(&request_params)
-                    .send()
-                    .expect("Unexpected error");
-
-                let code_response: PocketAccessTokenResponse =
-                    res.json().expect("Could not decode the response");
-
-                self.username = code_response.username;
-                self.access_token = code_response.access_token;
-
-                let request_params = PocketEntriesRequest {
-                    consumer_key: "99536-5a753dbe04d6ade99e80b4ab".to_owned(),
-                    access_token: self.access_token.clone(),
-                    count: "30".to_owned(),
-                };
-
-                let entries: serde_json::Value = client
-                    .post("https://getpocket.com/v3/get")
-                    .headers(headers)
-                    .json(&request_params)
-                    .send()
-                    .expect("Unexpected error")
-                    .json()
-                    .expect("lmao");
-
+                let entries = network::get_entries(&client, &self.access_token);
                 println!("{}", entries);
 
                 self.articles

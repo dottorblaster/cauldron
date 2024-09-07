@@ -110,8 +110,6 @@ impl SimpleComponent for App {
 
                 append = &gtk::Separator {
                     set_orientation: gtk::Orientation::Vertical,
-                } -> {
-                    set_navigatable: false,
                 },
 
                 gtk::Box {

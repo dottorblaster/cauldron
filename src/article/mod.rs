@@ -1,4 +1,4 @@
-use gtk::prelude::ButtonExt;
+use relm4::adw::{prelude::ActionRowExt, ActionRow};
 use relm4::factory::{DynamicIndex, FactoryComponent, FactorySender};
 use relm4::gtk;
 
@@ -28,8 +28,12 @@ impl FactoryComponent for Article {
 
     view! {
         #[root]
-        gtk::Button::with_label(&self.title) {
-            connect_clicked => ArticleInput::ArticleSelected,
+        ActionRow::builder()
+            .activatable(true)
+            .selectable(true)
+            .title(&self.title)
+            .build() {
+            connect_activated => ArticleInput::ArticleSelected
         }
     }
 
@@ -47,4 +51,22 @@ impl FactoryComponent for Article {
             }
         }
     }
+}
+
+pub fn parse_json_response(response: serde_json::Value) -> Vec<Article> {
+    let mut articles = vec![];
+
+    for (_, value) in response["list"].as_object().unwrap() {
+        let title = value["resolved_title"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
+        let uri = value["resolved_url"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
+        articles.push(Article { title, uri })
+    }
+
+    articles
 }

@@ -16,7 +16,7 @@ use gtk::{gio, glib};
 use crate::article::{Article, ArticleOutput};
 use crate::config::{APP_ID, PROFILE};
 use crate::modals::about::AboutDialog;
-use crate::network;
+use crate::network::pocket;
 
 pub(super) struct App {
     about_dialog: Controller<AboutDialog>,
@@ -97,15 +97,26 @@ impl SimpleComponent for App {
                         set_visible: model.access_token.is_empty(),
                         connect_clicked => AppMsg::StartLogin,
                     },
-
-                    #[local_ref]
-                    articles_list_box -> gtk::ListBox {
-                        #[watch]
-                        set_visible: !model.access_token.is_empty(),
-                        set_selection_mode: gtk::SelectionMode::Single,
+                    gtk::ScrolledWindow {
                         add_css_class: "navigation-sidebar",
-                    }
+                        set_propagate_natural_height: true,
 
+                        gtk::Box {
+                            set_margin_end: 12,
+                            set_margin_top: 12,
+                            set_margin_start: 12,
+                            set_margin_bottom: 12,
+                            set_orientation: gtk::Orientation::Vertical,
+
+                            #[local_ref]
+                            articles_list_box -> gtk::ListBox {
+                                #[watch]
+                                set_visible: !model.access_token.is_empty(),
+                                set_selection_mode: gtk::SelectionMode::Single,
+                                add_css_class: "navigation-sidebar",
+                            }
+                        }
+                    }
                 },
 
                 append = &gtk::Separator {
@@ -216,33 +227,33 @@ impl SimpleComponent for App {
                 println!("{}", uri)
             }
             AppMsg::StartLogin => {
-                let client = network::client();
-                let code_response = network::initiate_login(&client);
+                let client = pocket::client();
+                let code_response = pocket::initiate_login(&client);
                 println!("{:?}", code_response.code);
 
-                let pocket_uri = network::encode_pocket_uri(&code_response.code);
+                let pocket_uri = pocket::encode_pocket_uri(&code_response.code);
 
                 open::that(pocket_uri).expect("Could not open the browser");
                 code_response.code.clone_into(&mut self.auth_code);
             }
             AppMsg::Open(_uri) => {
-                let client = network::client();
+                let client = pocket::client();
 
-                let authorization_response = network::authorize(&client, &self.auth_code);
+                let authorization_response = pocket::authorize(&client, &self.auth_code);
 
                 self.username = authorization_response.username;
                 self.access_token = authorization_response.access_token;
 
-                let entries = network::get_entries(&client, &self.access_token);
+                let entries = pocket::get_entries(&client, &self.access_token);
                 println!("{}", entries);
 
-                self.articles
-                    .guard()
-                    .push_back(("kekw".to_owned(), "asd".to_owned()));
+                let parsed_entries = crate::article::parse_json_response(entries);
 
-                self.articles
-                    .guard()
-                    .push_back(("LELW".to_owned(), "AAA".to_owned()));
+                parsed_entries.iter().for_each(|Article { title, uri }| {
+                    self.articles
+                        .guard()
+                        .push_back((title.to_owned(), uri.to_owned()));
+                });
             }
         }
     }

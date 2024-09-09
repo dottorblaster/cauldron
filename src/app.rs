@@ -3,7 +3,7 @@ use relm4::{
     adw,
     factory::FactoryVecDeque,
     gtk, main_application, Component, ComponentController, ComponentParts, ComponentSender,
-    Controller, SimpleComponent,
+    Controller,
 };
 
 use gio::prelude::{ApplicationExtManual, FileExt};
@@ -12,11 +12,15 @@ use gtk::prelude::{
     WidgetExt,
 };
 use gtk::{gio, glib};
+use webkit6::{prelude::WebViewExt, WebView};
 
 use crate::article::{Article, ArticleOutput};
 use crate::config::{APP_ID, PROFILE};
 use crate::modals::about::AboutDialog;
 use crate::network::pocket;
+use article_scraper::{FtrConfigEntry, FullTextParser, Readability};
+use reqwest::Client;
+use url::Url;
 
 pub(super) struct App {
     about_dialog: Controller<AboutDialog>,
@@ -24,6 +28,7 @@ pub(super) struct App {
     access_token: String,
     username: String,
     articles: FactoryVecDeque<Article>,
+    article_html: Option<String>,
 }
 
 #[derive(Debug)]
@@ -34,16 +39,22 @@ pub(super) enum AppMsg {
     ArticleSelected(String),
 }
 
+#[derive(Debug)]
+pub(super) enum CommandMsg {
+    ScrapedArticle(String),
+}
+
 relm4::new_action_group!(pub(super) WindowActionGroup, "win");
 relm4::new_stateless_action!(PreferencesAction, WindowActionGroup, "preferences");
 relm4::new_stateless_action!(pub(super) ShortcutsAction, WindowActionGroup, "show-help-overlay");
 relm4::new_stateless_action!(AboutAction, WindowActionGroup, "about");
 
 #[relm4::component(pub)]
-impl SimpleComponent for App {
+impl Component for App {
     type Init = ();
     type Input = AppMsg;
     type Output = ();
+    type CommandOutput = CommandMsg;
     type Widgets = AppWidgets;
 
     menu! {
@@ -89,7 +100,6 @@ impl SimpleComponent for App {
                             set_icon_name: "open-menu-symbolic",
                             set_menu_model: Some(&primary_menu),
                         },
-
                     },
 
                     gtk::Button::with_label("Login") {
@@ -141,16 +151,19 @@ impl SimpleComponent for App {
                             set_title: "Content",
                         }
                     },
-
-                    gtk::Label {
-                        add_css_class: "title-1",
+                    gtk::ScrolledWindow {
+                        #[watch]
+                        set_visible: model.article_html.is_some(),
+                        set_propagate_natural_height: true,
                         set_vexpand: true,
 
-                        #[watch]
-                        set_text: "Kekw",
-                    }
+                        WebView {
+                            set_widget_name: "browser",
+                            #[watch]
+                            load_html: (&model.article_html.clone().unwrap_or_default(), Some("https://dottorblaster.it"))
+                        },
+                    },
                 },
-
             },
         }
     }
@@ -178,6 +191,13 @@ impl SimpleComponent for App {
                 ArticleOutput::ArticleSelected(uri) => AppMsg::ArticleSelected(uri),
             });
 
+        let webview = WebView::new();
+        webview.load_uri("https://crates.io/");
+        let settings = WebViewExt::settings(&webview).unwrap();
+        settings.set_enable_developer_extras(true);
+
+        webview.inspector().unwrap().show();
+
         let about_dialog = AboutDialog::builder()
             .transient_for(&root)
             .launch(())
@@ -189,6 +209,7 @@ impl SimpleComponent for App {
             access_token,
             username,
             articles,
+            article_html: None,
         };
 
         let articles_list_box = model.articles.widget();
@@ -220,11 +241,17 @@ impl SimpleComponent for App {
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
+    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>, _: &Self::Root) {
         match message {
             AppMsg::Quit => main_application().quit(),
             AppMsg::ArticleSelected(uri) => {
-                println!("{}", uri)
+                println!("{}", uri);
+
+                sender.oneshot_command(async move {
+                    let article = get_html(Some(uri)).await;
+                    let html = Readability::extract(&article, None).await;
+                    CommandMsg::ScrapedArticle(html.unwrap())
+                });
             }
             AppMsg::StartLogin => {
                 let client = pocket::client();
@@ -258,6 +285,17 @@ impl SimpleComponent for App {
         }
     }
 
+    fn update_cmd(
+        &mut self,
+        message: Self::CommandOutput,
+        _sender: ComponentSender<Self>,
+        _: &Self::Root,
+    ) {
+        match message {
+            CommandMsg::ScrapedArticle(html) => self.article_html = Some(html),
+        }
+    }
+
     fn shutdown(&mut self, widgets: &mut Self::Widgets, _output: relm4::Sender<Self::Output>) {
         widgets.save_window_size().unwrap();
     }
@@ -288,5 +326,25 @@ impl AppWidgets {
         if is_maximized {
             self.main_window.maximize();
         }
+    }
+}
+
+async fn get_html(source_url: Option<String>) -> String {
+    let source_url = source_url.map(|url| Url::parse(&url).expect("invalid source url"));
+
+    if let Some(source_url) = source_url {
+        match FullTextParser::download(
+            &source_url,
+            &Client::new(),
+            None,
+            &FtrConfigEntry::default(),
+        )
+        .await
+        {
+            Ok(html) => html,
+            Err(_err) => "".to_owned(),
+        }
+    } else {
+        unreachable!()
     }
 }

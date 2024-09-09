@@ -9,6 +9,7 @@ publish = false
 lto = true
 
 [dependencies]
+article_scraper = { git = "https://gitlab.com/news-flash/article_scraper.git" }
 gettext-rs = { version = "0.7", features = ["gettext-system"] }
 relm4 = { version = "0.9.0", features = ["libadwaita", "gnome_46"] }
 tracing = "0.1.37"
@@ -20,3 +21,4 @@ reqwest = { version = "0.12.7", features = ["blocking", "json"] }
 serde = "1.0.209"
 serde_json = "1.0.127"
 url = "2.5.2"
+webkit6 = "0.4.0"

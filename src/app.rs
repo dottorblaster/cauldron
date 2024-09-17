@@ -93,9 +93,12 @@ impl Component for App {
                 },
             adw::Leaflet{
                 gtk::Box {
+                    set_width_request: 350,
                     set_orientation: gtk::Orientation::Vertical,
 
                     adw::HeaderBar {
+                        set_show_end_title_buttons: false,
+                        set_show_title: false,
                         pack_end = &gtk::MenuButton {
                             set_icon_name: "open-menu-symbolic",
                             set_menu_model: Some(&primary_menu),
@@ -148,7 +151,7 @@ impl Component for App {
 
                         #[wrap(Some)]
                         set_title_widget = &adw::WindowTitle {
-                            set_title: "Content",
+                            set_title: "Cauldron",
                         }
                     },
                     gtk::ScrolledWindow {

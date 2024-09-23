@@ -18,6 +18,7 @@ use crate::article::{Article, ArticleOutput};
 use crate::config::{APP_ID, PROFILE};
 use crate::modals::about::AboutDialog;
 use crate::network::pocket;
+use crate::persistence::token;
 use article_scraper::{FtrConfigEntry, FullTextParser, Readability};
 use reqwest::Client;
 use url::Url;
@@ -186,20 +187,18 @@ impl Component for App {
         });
 
         let auth_code = String::new();
-        let access_token = String::new();
+
+        let access_token = match token::read_token() {
+            Ok(token) => token,
+            Err(_) => String::new(),
+        };
+
         let username = String::new();
         let articles = FactoryVecDeque::builder()
             .launch(gtk::ListBox::default())
             .forward(sender.input_sender(), |output| match output {
                 ArticleOutput::ArticleSelected(uri) => AppMsg::ArticleSelected(uri),
             });
-
-        let webview = WebView::new();
-        webview.load_uri("https://crates.io/");
-        let settings = WebViewExt::settings(&webview).unwrap();
-        settings.set_enable_developer_extras(true);
-
-        webview.inspector().unwrap().show();
 
         let about_dialog = AboutDialog::builder()
             .transient_for(&root)
@@ -273,6 +272,8 @@ impl Component for App {
 
                 self.username = authorization_response.username;
                 self.access_token = authorization_response.access_token;
+
+                let _ = token::save_token(&self.access_token);
 
                 let entries = pocket::get_entries(&client, &self.access_token);
                 println!("{}", entries);

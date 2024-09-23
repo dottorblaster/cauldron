@@ -4,6 +4,7 @@ mod app;
 mod article;
 mod modals;
 mod network;
+mod persistence;
 
 use config::{APP_ID, GETTEXT_PACKAGE, LOCALEDIR, RESOURCES_FILE};
 use gettextrs::{gettext, LocaleCategory};

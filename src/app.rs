@@ -18,6 +18,7 @@ use crate::article::{Article, ArticleOutput};
 use crate::config::{APP_ID, PROFILE};
 use crate::modals::about::AboutDialog;
 use crate::network::pocket;
+use crate::persistence::token;
 use article_scraper::{FtrConfigEntry, FullTextParser, Readability};
 use reqwest::Client;
 use url::Url;
@@ -37,11 +38,15 @@ pub(super) enum AppMsg {
     StartLogin,
     Open(String),
     ArticleSelected(String),
+    RefreshArticles,
 }
 
 #[derive(Debug)]
 pub(super) enum CommandMsg {
+    RefreshedArticles(Vec<Article>),
     ScrapedArticle(String),
+    SetToken((String, String)),
+    SetAuthCode(String),
 }
 
 relm4::new_action_group!(pub(super) WindowActionGroup, "win");
@@ -99,6 +104,11 @@ impl Component for App {
                     adw::HeaderBar {
                         set_show_end_title_buttons: false,
                         set_show_title: false,
+                        pack_start = &gtk::Button {
+                            set_icon_name: "view-refresh-symbolic",
+                            connect_clicked => AppMsg::RefreshArticles
+                        },
+
                         pack_end = &gtk::MenuButton {
                             set_icon_name: "open-menu-symbolic",
                             set_menu_model: Some(&primary_menu),
@@ -144,7 +154,7 @@ impl Component for App {
                     adw::HeaderBar {
                         #[name = "back_button"]
                         pack_start = &gtk::Button {
-                            set_icon_name: "go-previous-symbolic",
+                            set_icon_name: "folder-new-symbolic",
                             connect_clicked => move |_| {
                             }
                         },
@@ -186,20 +196,18 @@ impl Component for App {
         });
 
         let auth_code = String::new();
-        let access_token = String::new();
+
+        let access_token = match token::read_token() {
+            Ok(token) => token,
+            Err(_) => String::new(),
+        };
+
         let username = String::new();
         let articles = FactoryVecDeque::builder()
             .launch(gtk::ListBox::default())
             .forward(sender.input_sender(), |output| match output {
                 ArticleOutput::ArticleSelected(uri) => AppMsg::ArticleSelected(uri),
             });
-
-        let webview = WebView::new();
-        webview.load_uri("https://crates.io/");
-        let settings = WebViewExt::settings(&webview).unwrap();
-        settings.set_enable_developer_extras(true);
-
-        webview.inspector().unwrap().show();
 
         let about_dialog = AboutDialog::builder()
             .transient_for(&root)
@@ -257,32 +265,37 @@ impl Component for App {
                 });
             }
             AppMsg::StartLogin => {
-                let client = pocket::client();
-                let code_response = pocket::initiate_login(&client);
-                println!("{:?}", code_response.code);
-
-                let pocket_uri = pocket::encode_pocket_uri(&code_response.code);
-
-                open::that(pocket_uri).expect("Could not open the browser");
-                code_response.code.clone_into(&mut self.auth_code);
+                sender.oneshot_command(async {
+                    let client = pocket::client();
+                    let code_response = pocket::initiate_login(&client).await;
+                    CommandMsg::SetAuthCode(code_response.code)
+                });
             }
             AppMsg::Open(_uri) => {
-                let client = pocket::client();
+                let auth_code = self.auth_code.clone();
 
-                let authorization_response = pocket::authorize(&client, &self.auth_code);
+                sender.oneshot_command(async move {
+                    let client = pocket::client();
 
-                self.username = authorization_response.username;
-                self.access_token = authorization_response.access_token;
+                    let authorization_response = pocket::authorize(&client, &auth_code).await;
 
-                let entries = pocket::get_entries(&client, &self.access_token);
-                println!("{}", entries);
+                    CommandMsg::SetToken((
+                        authorization_response.username,
+                        authorization_response.access_token,
+                    ))
+                });
+            }
+            AppMsg::RefreshArticles => {
+                let access_token = self.access_token.clone();
 
-                let parsed_entries = crate::article::parse_json_response(entries);
+                sender.oneshot_command(async move {
+                    let client = pocket::client();
+                    let entries = pocket::get_entries(&client, &access_token).await;
+                    println!("{}", entries);
 
-                parsed_entries.iter().for_each(|Article { title, uri }| {
-                    self.articles
-                        .guard()
-                        .push_back((title.to_owned(), uri.to_owned()));
+                    let parsed_entries = crate::article::parse_json_response(entries);
+
+                    CommandMsg::RefreshedArticles(parsed_entries)
                 });
             }
         }
@@ -291,11 +304,31 @@ impl Component for App {
     fn update_cmd(
         &mut self,
         message: Self::CommandOutput,
-        _sender: ComponentSender<Self>,
+        sender: ComponentSender<Self>,
         _: &Self::Root,
     ) {
         match message {
+            CommandMsg::RefreshedArticles(entries) => {
+                entries.iter().for_each(|Article { title, uri }| {
+                    self.articles
+                        .guard()
+                        .push_back((title.to_owned(), uri.to_owned()));
+                });
+            }
             CommandMsg::ScrapedArticle(html) => self.article_html = Some(html),
+            CommandMsg::SetAuthCode(auth_code) => {
+                let pocket_uri = pocket::encode_pocket_uri(&auth_code);
+
+                open::that(pocket_uri).expect("Could not open the browser");
+                auth_code.clone_into(&mut self.auth_code)
+            }
+            CommandMsg::SetToken((username, access_token)) => {
+                self.username = username;
+                self.access_token = access_token;
+
+                let _ = token::save_token(&self.access_token);
+                let _ = sender.input(AppMsg::RefreshArticles);
+            }
         }
     }
 

@@ -1,5 +1,5 @@
-use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use url::form_urlencoded;
 
@@ -47,10 +47,10 @@ fn headers() -> HeaderMap {
 }
 
 pub fn client() -> Client {
-    reqwest::blocking::Client::new()
+    reqwest::Client::new()
 }
 
-pub fn initiate_login(client: &Client) -> PocketCodeResponse {
+pub async fn initiate_login(client: &Client) -> PocketCodeResponse {
     let headers = headers();
 
     let request_params = PocketInitiateOauthRequest {
@@ -63,14 +63,16 @@ pub fn initiate_login(client: &Client) -> PocketCodeResponse {
         .headers(headers)
         .json(&request_params)
         .send()
+        .await
         .expect("Unexpected error");
 
-    let code_response: PocketCodeResponse = res.json().expect("Could not decode the response");
+    let code_response: PocketCodeResponse =
+        res.json().await.expect("Could not decode the response");
 
     code_response
 }
 
-pub fn authorize(client: &Client, auth_code: &str) -> PocketAccessTokenResponse {
+pub async fn authorize(client: &Client, auth_code: &str) -> PocketAccessTokenResponse {
     let headers = headers();
 
     let request_params = PocketAccessTokenRequest {
@@ -83,15 +85,16 @@ pub fn authorize(client: &Client, auth_code: &str) -> PocketAccessTokenResponse 
         .headers(headers)
         .json(&request_params)
         .send()
+        .await
         .expect("Unexpected error");
 
     let code_response: PocketAccessTokenResponse =
-        res.json().expect("Could not decode the response");
+        res.json().await.expect("Could not decode the response");
 
     code_response
 }
 
-pub fn get_entries(client: &Client, access_token: &str) -> serde_json::Value {
+pub async fn get_entries(client: &Client, access_token: &str) -> serde_json::Value {
     let headers = headers();
     let request_params = PocketEntriesRequest {
         consumer_key: "99536-5a753dbe04d6ade99e80b4ab".to_owned(),
@@ -105,8 +108,10 @@ pub fn get_entries(client: &Client, access_token: &str) -> serde_json::Value {
         .headers(headers)
         .json(&request_params)
         .send()
+        .await
         .expect("Unexpected error")
         .json()
+        .await
         .expect("lmao");
 
     entries

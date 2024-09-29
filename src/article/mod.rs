@@ -6,11 +6,12 @@ use relm4::gtk;
 pub struct Article {
     pub title: String,
     pub uri: String,
+    pub item_id: String,
 }
 
 #[derive(Debug)]
 pub enum ArticleOutput {
-    ArticleSelected(String),
+    ArticleSelected(String, String),
 }
 
 #[derive(Debug)]
@@ -20,7 +21,7 @@ pub enum ArticleInput {
 
 #[relm4::factory(pub)]
 impl FactoryComponent for Article {
-    type Init = (String, String);
+    type Init = (String, String, String);
     type Input = ArticleInput;
     type Output = ArticleOutput;
     type CommandOutput = ();
@@ -38,15 +39,22 @@ impl FactoryComponent for Article {
     }
 
     fn init_model(init: Self::Init, _index: &DynamicIndex, _sender: FactorySender<Self>) -> Self {
-        let (title, uri) = init;
-        Self { title, uri }
+        let (title, uri, item_id) = init;
+        Self {
+            title,
+            uri,
+            item_id,
+        }
     }
 
     fn update(&mut self, msg: Self::Input, sender: FactorySender<Self>) {
         match msg {
             ArticleInput::ArticleSelected => {
                 sender
-                    .output(ArticleOutput::ArticleSelected(self.uri.clone()))
+                    .output(ArticleOutput::ArticleSelected(
+                        self.uri.clone(),
+                        self.item_id.clone(),
+                    ))
                     .unwrap();
             }
         }
@@ -65,7 +73,12 @@ pub fn parse_json_response(response: serde_json::Value) -> Vec<Article> {
             .as_str()
             .unwrap_or_default()
             .to_owned();
-        articles.push(Article { title, uri })
+        let item_id = value["item_id"].as_str().unwrap_or_default().to_owned();
+        articles.push(Article {
+            title,
+            uri,
+            item_id,
+        })
     }
 
     articles

@@ -32,6 +32,21 @@ pub struct PocketEntriesRequest {
     access_token: String,
     count: String,
     total: String,
+    state: String,
+    sort: String,
+}
+
+#[derive(Serialize)]
+pub struct PocketArchiveEntryRequest {
+    consumer_key: String,
+    access_token: String,
+    actions: Vec<PocketArchiveAction>,
+}
+
+#[derive(Serialize)]
+pub struct PocketArchiveAction {
+    action: String,
+    item_id: String,
 }
 
 fn headers() -> HeaderMap {
@@ -101,6 +116,8 @@ pub async fn get_entries(client: &Client, access_token: &str) -> serde_json::Val
         count: "30".to_owned(),
         access_token: access_token.to_owned(),
         total: "1".to_owned(),
+        state: "unread".to_owned(),
+        sort: "newest".to_owned(),
     };
 
     let entries: serde_json::Value = client
@@ -115,6 +132,28 @@ pub async fn get_entries(client: &Client, access_token: &str) -> serde_json::Val
         .expect("lmao");
 
     entries
+}
+
+pub async fn archive(client: &Client, access_token: &str, item_id: &str) -> () {
+    let headers = headers();
+    let request_params = PocketArchiveEntryRequest {
+        consumer_key: "99536-5a753dbe04d6ade99e80b4ab".to_owned(),
+        access_token: access_token.to_owned(),
+        actions: vec![PocketArchiveAction {
+            item_id: item_id.to_owned(),
+            action: "archive".to_owned(),
+        }],
+    };
+
+    client
+        .post("https://getpocket.com/v3/send")
+        .headers(headers)
+        .json(&request_params)
+        .send()
+        .await
+        .expect("Unexpected error");
+
+    ()
 }
 
 pub fn encode_pocket_uri(auth_code: &str) -> String {

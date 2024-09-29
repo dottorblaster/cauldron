@@ -30,6 +30,8 @@ pub(super) struct App {
     username: String,
     articles: FactoryVecDeque<Article>,
     article_html: Option<String>,
+    article_uri: Option<String>,
+    article_item_id: Option<String>,
 }
 
 #[derive(Debug)]
@@ -37,8 +39,9 @@ pub(super) enum AppMsg {
     Quit,
     StartLogin,
     Open(String),
-    ArticleSelected(String),
+    ArticleSelected(String, String),
     RefreshArticles,
+    ArchiveArticle,
 }
 
 #[derive(Debug)]
@@ -47,6 +50,7 @@ pub(super) enum CommandMsg {
     ScrapedArticle(String),
     SetToken((String, String)),
     SetAuthCode(String),
+    ArticleArchived(String),
 }
 
 relm4::new_action_group!(pub(super) WindowActionGroup, "win");
@@ -154,9 +158,8 @@ impl Component for App {
                     adw::HeaderBar {
                         #[name = "back_button"]
                         pack_start = &gtk::Button {
-                            set_icon_name: "folder-new-symbolic",
-                            connect_clicked => move |_| {
-                            }
+                            set_icon_name: "document-revert-symbolic",
+                            connect_clicked => AppMsg::ArchiveArticle
                         },
 
                         #[wrap(Some)]
@@ -206,7 +209,9 @@ impl Component for App {
         let articles = FactoryVecDeque::builder()
             .launch(gtk::ListBox::default())
             .forward(sender.input_sender(), |output| match output {
-                ArticleOutput::ArticleSelected(uri) => AppMsg::ArticleSelected(uri),
+                ArticleOutput::ArticleSelected(uri, item_id) => {
+                    AppMsg::ArticleSelected(uri, item_id)
+                }
             });
 
         let about_dialog = AboutDialog::builder()
@@ -221,6 +226,8 @@ impl Component for App {
             username,
             articles,
             article_html: None,
+            article_uri: None,
+            article_item_id: None,
         };
 
         let articles_list_box = model.articles.widget();
@@ -255,8 +262,10 @@ impl Component for App {
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>, _: &Self::Root) {
         match message {
             AppMsg::Quit => main_application().quit(),
-            AppMsg::ArticleSelected(uri) => {
+            AppMsg::ArticleSelected(uri, item_id) => {
                 println!("{}", uri);
+                self.article_uri = Some(uri.clone());
+                self.article_item_id = Some(item_id);
 
                 sender.oneshot_command(async move {
                     let article = get_html(Some(uri)).await;
@@ -298,6 +307,17 @@ impl Component for App {
                     CommandMsg::RefreshedArticles(parsed_entries)
                 });
             }
+            AppMsg::ArchiveArticle => {
+                let access_token = self.access_token.clone();
+                let item_id = self.article_item_id.clone().unwrap();
+
+                sender.oneshot_command(async move {
+                    let client = pocket::client();
+                    let _ = pocket::archive(&client, &access_token, &item_id).await;
+
+                    CommandMsg::ArticleArchived(item_id)
+                });
+            }
         }
     }
 
@@ -309,11 +329,20 @@ impl Component for App {
     ) {
         match message {
             CommandMsg::RefreshedArticles(entries) => {
-                entries.iter().for_each(|Article { title, uri }| {
-                    self.articles
-                        .guard()
-                        .push_back((title.to_owned(), uri.to_owned()));
-                });
+                self.articles.guard().clear();
+                entries.iter().for_each(
+                    |Article {
+                         title,
+                         uri,
+                         item_id,
+                     }| {
+                        self.articles.guard().push_back((
+                            title.to_owned(),
+                            uri.to_owned(),
+                            item_id.to_owned(),
+                        ));
+                    },
+                );
             }
             CommandMsg::ScrapedArticle(html) => self.article_html = Some(html),
             CommandMsg::SetAuthCode(auth_code) => {
@@ -327,7 +356,10 @@ impl Component for App {
                 self.access_token = access_token;
 
                 let _ = token::save_token(&self.access_token);
-                let _ = sender.input(AppMsg::RefreshArticles);
+                sender.input(AppMsg::RefreshArticles);
+            }
+            CommandMsg::ArticleArchived(_item_id) => {
+                sender.input(AppMsg::RefreshArticles);
             }
         }
     }

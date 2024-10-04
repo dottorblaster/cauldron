@@ -71,11 +71,9 @@ fn main() {
 
     match main_application().windows().first() {
         None => {
-            println!("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
             app.visible_on_activate(false).run::<App>(());
         }
         Some(window) => {
-            println!("Windows present");
             window.present();
         }
     }

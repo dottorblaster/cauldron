@@ -48,6 +48,8 @@ else
   application_id = base_id
 endif
 
+consumer_key = get_option('consumer_key')
+
 meson.add_dist_script(
   'build-aux/dist-vendor.sh',
   meson.project_build_root() / 'meson-dist' / meson.project_name() + '-' + version,

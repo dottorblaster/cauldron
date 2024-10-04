@@ -8,3 +8,10 @@ option(
   value: 'default',
   description: 'The build profile for Cauldron. One of "default" or "development".'
 )
+
+option(
+  'consumer_key',
+  type: 'string',
+  value: '99536-5a753dbe04d6ade99e80b4ab',
+  description: 'Pocket consumer key.'
+)

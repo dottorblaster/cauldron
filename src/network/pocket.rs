@@ -3,6 +3,8 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use url::form_urlencoded;
 
+use crate::config::CONSUMER_KEY;
+
 #[derive(Serialize)]
 pub struct PocketInitiateOauthRequest {
     consumer_key: String,
@@ -69,7 +71,7 @@ pub async fn initiate_login(client: &Client) -> PocketCodeResponse {
     let headers = headers();
 
     let request_params = PocketInitiateOauthRequest {
-        consumer_key: "99536-5a753dbe04d6ade99e80b4ab".to_owned(),
+        consumer_key: CONSUMER_KEY.to_owned(),
         redirect_uri: "pocket://kekw".to_owned(),
     };
 
@@ -91,7 +93,7 @@ pub async fn authorize(client: &Client, auth_code: &str) -> PocketAccessTokenRes
     let headers = headers();
 
     let request_params = PocketAccessTokenRequest {
-        consumer_key: "99536-5a753dbe04d6ade99e80b4ab".to_owned(),
+        consumer_key: CONSUMER_KEY.to_owned(),
         code: auth_code.to_owned(),
     };
 
@@ -112,7 +114,7 @@ pub async fn authorize(client: &Client, auth_code: &str) -> PocketAccessTokenRes
 pub async fn get_entries(client: &Client, access_token: &str) -> serde_json::Value {
     let headers = headers();
     let request_params = PocketEntriesRequest {
-        consumer_key: "99536-5a753dbe04d6ade99e80b4ab".to_owned(),
+        consumer_key: CONSUMER_KEY.to_owned(),
         count: "30".to_owned(),
         access_token: access_token.to_owned(),
         total: "1".to_owned(),
@@ -137,7 +139,7 @@ pub async fn get_entries(client: &Client, access_token: &str) -> serde_json::Val
 pub async fn archive(client: &Client, access_token: &str, item_id: &str) -> () {
     let headers = headers();
     let request_params = PocketArchiveEntryRequest {
-        consumer_key: "99536-5a753dbe04d6ade99e80b4ab".to_owned(),
+        consumer_key: CONSUMER_KEY.to_owned(),
         access_token: access_token.to_owned(),
         actions: vec![PocketArchiveAction {
             item_id: item_id.to_owned(),

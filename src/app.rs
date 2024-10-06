@@ -169,6 +169,13 @@ impl Component for App {
                             set_title: "Cauldron",
                         }
                     },
+                    gtk::Label {
+                        #[watch]
+                        set_visible: model.article_html.is_none(),
+                        add_css_class: "title-1",
+                        set_vexpand: true,
+                        set_text: "Select an article",
+                    },
                     gtk::ScrolledWindow {
                         #[watch]
                         set_visible: model.article_html.is_some(),
@@ -386,6 +393,9 @@ impl Component for App {
                 sender.input(AppMsg::RefreshArticles);
             }
             CommandMsg::ArticleArchived(_item_id) => {
+                self.article_html = None;
+                self.article_uri = None;
+                self.article_item_id = None;
                 sender.input(AppMsg::RefreshArticles);
             }
         }

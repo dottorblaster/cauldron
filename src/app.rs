@@ -12,10 +12,12 @@ use gtk::prelude::{
     WidgetExt,
 };
 use gtk::{gio, glib};
-use webkit6::{prelude::WebViewExt, WebView};
+use webkit6::{
+    prelude::WebViewExt, UserContentInjectedFrames, UserStyleLevel, UserStyleSheet, WebView,
+};
 
 use crate::article::{Article, ArticleOutput};
-use crate::config::{APP_ID, PROFILE};
+use crate::config::{APP_ID, PROFILE, RESOURCES_FILE};
 use crate::modals::about::AboutDialog;
 use crate::network::pocket;
 use crate::persistence::token;
@@ -175,6 +177,33 @@ impl Component for App {
 
                         WebView {
                             set_widget_name: "browser",
+                            connect_resource_load_started: |webview, _, _| {
+                                let res = gio::Resource::load(RESOURCES_FILE).expect("Could not load gresource file");
+                                gio::resources_register(&res);
+
+                                let data = res
+                                    .lookup_data(
+                                        "/it/dottorblaster/cauldron/article_view/style.css",
+                                        gio::ResourceLookupFlags::NONE,
+                                    )
+                                    .unwrap();
+                                let css_string = &glib::GString::from_utf8_checked(data.to_vec()).unwrap();
+
+                                let user_style_sheet = UserStyleSheet::new(
+                                    css_string,
+                                    UserContentInjectedFrames::TopFrame,
+                                    UserStyleLevel::User,
+                                    &[],
+                                    &[],
+                                );
+
+                                match webview.user_content_manager() {
+                                    Some(content_manager) => {
+                                        content_manager.add_style_sheet(&user_style_sheet);
+                                    },
+                                    None => {}
+                                }
+                            },
                             #[watch]
                             load_html: (&model.article_html.clone().unwrap_or_default(), Some("https://dottorblaster.it"))
                         },
@@ -263,7 +292,6 @@ impl Component for App {
         match message {
             AppMsg::Quit => main_application().quit(),
             AppMsg::ArticleSelected(uri, item_id) => {
-                println!("{}", uri);
                 self.article_uri = Some(uri.clone());
                 self.article_item_id = Some(item_id);
 
@@ -300,7 +328,6 @@ impl Component for App {
                 sender.oneshot_command(async move {
                     let client = pocket::client();
                     let entries = pocket::get_entries(&client, &access_token).await;
-                    println!("{}", entries);
 
                     let parsed_entries = crate::article::parse_json_response(entries);
 

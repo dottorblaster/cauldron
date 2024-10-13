@@ -1,76 +1,47 @@
-# GTK + Rust + Relm4 + Meson + Flatpak = <3
+# Cauldron
 
-> This is a fork of [gtk-rust-template](https://gitlab.gnome.org/World/Rust/gtk-rust-template) that adapts the code for Relm4 while trying to change as little as possible.
+Cauldron is a GNOME desktop application written in Rust that allows you to read articles stored in your Pocket account. It is built using the GTK toolkit as the graphical library.
 
-A boilerplate template to get started with GTK, Rust, Meson, Flatpak made for GNOME. It can be adapted for other desktop environments like elementary.
 
 <div align="center">
 
-![Main window](data/resources/screenshots/screenshot1.png "Main window")
+![Main window](data/resources/screenshots/screenshot2.png "Main window")
 </div>
 
-## What does it contains?
+## Features
 
-- A simple window with a headerbar
-- Bunch of useful files that you SHOULD ship with your application on Linux:
-  - Metainfo: describe your application for the different application stores out there;
-  - Desktop: the application launcher;
-  - Icons: This repo contains three icons, a normal, a nightly & monochromatic icon (symbolic) per the GNOME HIG, exported using [App Icon Preview](https://flathub.org/apps/details/org.gnome.design.AppIconPreview).
-- Flatpak Manifest for nightly builds
-- Dual installation support
-- Uses Meson for building the application
-- Bundles the UI files & the CSS using gresources
-- A pre-commit hook to run rustfmt on your code
-- Tests to validate your Metainfo, Schemas & Desktop files
-- Gsettings to store the window state, more settings could be added
-- Gitlab CI to produce flatpak nightlies
-- i18n support
+- Pocket Integration: Cauldron seamlessly integrates with your Pocket account, allowing you to access and read the articles you have saved.
+- GNOME-Friendly UI: The application's user interface is designed to blend in with the GNOME desktop environment, providing a native and intuitive experience.
+- Responsive Design: Cauldron's layout adapts to different screen sizes and resolutions, ensuring a great experience on a variety of devices.
+-Offline Reading (coming soon): You can download articles for offline viewing, making it easy to read your saved content even when you're not connected to the internet.
+- Customization: The application offers various customization options, such as light and dark themes, to suit your personal preferences.
 
-## How to init a project ?
+## Installation
 
-The template ships a simple python script to init a project easily. It asks you a few questions and replaces & renames all the necessary files.
+Cauldron is available as a Flatpak package, making it easy to install and run on your GNOME-based system. You can find the latest release on Flathub.
 
-The script requires having `git` installed on your system.
+## Getting Started
 
-If you clone this repository, you can run it with:
-
-```shell
-python3 create-project.py
-```
-
-If you don't want to clone the repository, you can run it with:
-
-```shell
-python3 -c "$(wget -q -O - https://raw.githubusercontent.com/Relm4/relm4-template/main/create-project.py)" --online
-```
-
-```shell
-➜ python3 create-project.py
-Welcome to GTK Rust Template
-Name: Contrast
-Project Name: contrast
-Application ID (e.g. org.domain.MyAwesomeApp, see: https://developer.gnome.org/ChooseApplicationID/): org.gnome.design.Contrast
-Author: Bilal Elmoussaoui
-Email: bil.elmoussaoui@gmail.com
-```
-
-A new directory named `contrast` containing the generated project
+- Install the Cauldron Flatpak package from the GNOME Flathub.
+- Launch the application from your GNOME application menu.
+- Sign in to your Pocket account when prompted.
+- Start reading your saved articles!
 
 ## Building the project
 
-Make sure you have `flatpak` and `flatpak-builder` installed. Then run the commands below. Replace `<application_id>` with the value you entered during project creation. Please note that these commands are just for demonstration purposes. Normally this would be handled by your IDE, such as GNOME Builder or VS Code with the Flatpak extension.
+Make sure you have `flatpak` and `flatpak-builder` installed. Then run the commands below. Please note that these commands are just for demonstration purposes. Normally this would be handled by your IDE, such as GNOME Builder or VS Code with the Flatpak extension.
 
 ```shell
 flatpak install --user org.gnome.Sdk//46 org.gnome.Platform//46  org.freedesktop.Sdk.Extension.rust-stable//23.08 org.freedesktop.Sdk.Extension.llvm16//23.08
-flatpak-builder --user flatpak_app build-aux/<application_id>.Devel.json
+flatpak-builder --user flatpak_app build-aux/it.dottorblaster.cauldron.Devel.json
 ```
 
 ## Running the project
 
-Once the project is build, run the command below. Replace Replace `<application_id>` and `<project_name>` with the values you entered during project creation. Please note that these commands are just for demonstration purposes. Normally this would be handled by your IDE, such as GNOME Builder or VS Code with the Flatpak extension.
+Once the project is build, run the command below. Please note that these commands are just for demonstration purposes. Normally this would be handled by your IDE, such as GNOME Builder or VS Code with the Flatpak extension.
 
 ```shell
-flatpak-builder --run flatpak_app build-aux/<application_id>.Devel.json <project_name>
+flatpak-builder --run flatpak_app build-aux/it.dottorblaster.cauldron.Devel.json cauldron
 ```
 
 ## Community

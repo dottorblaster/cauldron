@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -36,6 +38,21 @@ pub struct PocketEntriesRequest {
     total: String,
     state: String,
     sort: String,
+    offset: String,
+}
+
+#[derive(Deserialize)]
+pub struct PocketEntriesResponse {
+    list: HashMap<String, PocketArticle>,
+    total: i32,
+    status: String,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct PocketArticle {
+    item_id: String,
+    resolved_title: String,
+    resolved_url: String,
 }
 
 #[derive(Serialize)]
@@ -113,25 +130,39 @@ pub async fn authorize(client: &Client, auth_code: &str) -> PocketAccessTokenRes
 
 pub async fn get_entries(client: &Client, access_token: &str) -> serde_json::Value {
     let headers = headers();
-    let request_params = PocketEntriesRequest {
-        consumer_key: CONSUMER_KEY.to_owned(),
-        count: "30".to_owned(),
-        access_token: access_token.to_owned(),
-        total: "1".to_owned(),
-        state: "unread".to_owned(),
-        sort: "newest".to_owned(),
-    };
+    let mut offset = 0;
+    let mut total = 0;
+    let mut entries = vec![];
 
-    let entries: serde_json::Value = client
-        .post("https://getpocket.com/v3/get")
-        .headers(headers)
-        .json(&request_params)
-        .send()
-        .await
-        .expect("Unexpected error")
-        .json()
-        .await
-        .expect("lmao");
+    while total >= offset {
+        let request_params = PocketEntriesRequest {
+            consumer_key: CONSUMER_KEY.to_owned(),
+            count: "30".to_owned(),
+            access_token: access_token.to_owned(),
+            total: "1".to_owned(),
+            state: "unread".to_owned(),
+            sort: "newest".to_owned(),
+            offset: offset.to_string(),
+        };
+
+        let response: PocketEntriesResponse = client
+            .post("https://getpocket.com/v3/get")
+            .headers(headers)
+            .json(&request_params)
+            .send()
+            .await
+            .expect("Unexpected error")
+            .json()
+            .await
+            .expect("Failed to get JSON");
+
+        offset = offset + 30;
+        total = response.total;
+
+        let mut articles: Vec<PocketArticle> = response.list.values().collect();
+
+        entries.append(articles);
+    }
 
     entries
 }

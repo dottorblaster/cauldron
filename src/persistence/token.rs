@@ -4,6 +4,7 @@ use relm4::gtk::glib;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
+
 pub fn save_token(token: &str) -> Result<()> {
     let mut path = glib::user_data_dir();
     path.push(APP_ID);

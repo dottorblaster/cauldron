@@ -2,6 +2,8 @@ use relm4::adw::{prelude::ActionRowExt, ActionRow};
 use relm4::factory::{DynamicIndex, FactoryComponent, FactorySender};
 use relm4::gtk;
 
+use crate::network::pocket::PocketArticle;
+
 #[derive(Debug)]
 pub struct Article {
     pub title: String,
@@ -61,25 +63,19 @@ impl FactoryComponent for Article {
     }
 }
 
-pub fn parse_json_response(response: serde_json::Value) -> Vec<Article> {
-    let mut articles = vec![];
-
-    for (_, value) in response["list"].as_object().unwrap() {
-        let title = value["resolved_title"]
-            .as_str()
-            .unwrap_or_default()
-            .to_owned();
-        let uri = value["resolved_url"]
-            .as_str()
-            .unwrap_or_default()
-            .to_owned();
-        let item_id = value["item_id"].as_str().unwrap_or_default().to_owned();
-        articles.push(Article {
-            title,
-            uri,
-            item_id,
-        })
-    }
-
-    articles
+pub fn parse_json_response(downloaded_articles: Vec<PocketArticle>) -> Vec<Article> {
+    downloaded_articles
+        .iter()
+        .map(
+            |PocketArticle {
+                 item_id,
+                 resolved_title,
+                 resolved_url,
+             }| Article {
+                item_id: item_id.to_owned(),
+                title: resolved_title.to_owned(),
+                uri: resolved_url.to_owned(),
+            },
+        )
+        .collect()
 }

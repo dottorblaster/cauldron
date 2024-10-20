@@ -112,8 +112,11 @@ impl Component for App {
                         set_show_end_title_buttons: false,
                         set_show_title: false,
                         pack_start = if model.loading {
-                            &gtk::Spinner {
-                                set_spinning: true,
+                            &adw::Spinner {
+                                set_halign: gtk::Align::Center,
+                                set_valign: gtk::Align::Center,
+                                set_width_request: 20,
+                                set_height_request: 20,
                             }
                         } else {
                             &gtk::Button {

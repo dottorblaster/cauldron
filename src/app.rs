@@ -27,6 +27,7 @@ use url::Url;
 
 pub(super) struct App {
     about_dialog: Controller<AboutDialog>,
+    loading: bool,
     auth_code: String,
     access_token: String,
     username: String,
@@ -110,9 +111,15 @@ impl Component for App {
                     adw::HeaderBar {
                         set_show_end_title_buttons: false,
                         set_show_title: false,
-                        pack_start = &gtk::Button {
-                            set_icon_name: "view-refresh-symbolic",
-                            connect_clicked => AppMsg::RefreshArticles
+                        pack_start = if model.loading {
+                            &gtk::Spinner {
+                                set_spinning: true,
+                            }
+                        } else {
+                            &gtk::Button {
+                                set_icon_name: "view-refresh-symbolic",
+                                connect_clicked => AppMsg::RefreshArticles
+                            }
                         },
 
                         pack_end = &gtk::MenuButton {
@@ -160,7 +167,7 @@ impl Component for App {
                     adw::HeaderBar {
                         #[name = "back_button"]
                         pack_start = &gtk::Button {
-                            set_icon_name: "document-revert-symbolic",
+                            set_icon_name: "shoe-box-symbolic",
                             connect_clicked => AppMsg::ArchiveArticle
                         },
 
@@ -264,6 +271,7 @@ impl Component for App {
             article_html: None,
             article_uri: None,
             article_item_id: None,
+            loading: false,
         };
 
         let articles_list_box = model.articles.widget();
@@ -331,6 +339,7 @@ impl Component for App {
             }
             AppMsg::RefreshArticles => {
                 let access_token = self.access_token.clone();
+                self.loading = true;
 
                 sender.oneshot_command(async move {
                     let client = pocket::client();
@@ -363,6 +372,7 @@ impl Component for App {
     ) {
         match message {
             CommandMsg::RefreshedArticles(entries) => {
+                self.loading = false;
                 self.articles.guard().clear();
                 entries.iter().for_each(
                     |Article {

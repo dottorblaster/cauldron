@@ -7,7 +7,6 @@
     <file compressed="true">article_view/style.css</file>
   </gresource>
   <gresource prefix="/it/dottorblaster/cauldron/">
-    <file preprocess="xml-stripblanks">icons/shoe-box-symbolic.svg</file>
-    <file preprocess="xml-stripblanks">icons/spinner-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/shoe-box-symbolic.svg</file>
   </gresource>
 </gresources>

@@ -83,6 +83,8 @@ pub fn parse_json_response(downloaded_articles: Vec<PocketArticle>) -> Vec<Artic
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
 
     #[test]
     fn test_parse_json_response() {
@@ -94,5 +96,14 @@ mod tests {
 
         let articles = parse_json_response(downloaded_articles);
         assert_eq!(articles[0].item_id, "item_id_one")
+    }
+
+    #[test]
+    fn test_init_model() {
+        let dynamic_index = DynamicIndex {
+            inner: Arc::new(AtomicUsize::new(5)),
+        };
+        //let test_sender = FactorySender::new();
+        //let article = Article::init_model(("a".to_owned(), "b".to_owned(), "c".to_owned()));
     }
 }

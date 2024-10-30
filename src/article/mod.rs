@@ -79,3 +79,20 @@ pub fn parse_json_response(downloaded_articles: Vec<PocketArticle>) -> Vec<Artic
         )
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_json_response() {
+        let downloaded_articles = vec![PocketArticle {
+            item_id: "item_id_one".to_owned(),
+            resolved_title: "this_is_a_resolved_title".to_owned(),
+            resolved_url: "this_is_a_resolved_url".to_owned(),
+        }];
+
+        let articles = parse_json_response(downloaded_articles);
+        assert_eq!(articles[0].item_id, "item_id_one")
+    }
+}

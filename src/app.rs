@@ -260,10 +260,7 @@ impl Component for App {
                 }
             });
 
-        let about_dialog = AboutDialog::builder()
-            .transient_for(&root)
-            .launch(())
-            .detach();
+        let about_dialog = AboutDialog::builder().launch(()).detach();
 
         let model = Self {
             about_dialog,

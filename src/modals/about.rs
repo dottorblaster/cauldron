@@ -1,5 +1,7 @@
-use gtk::prelude::GtkWindowExt;
-use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
+use relm4::{
+    adw, adw::prelude::AdwDialogExt, ComponentParts, ComponentSender, RelmWidgetExt,
+    SimpleComponent,
+};
 
 use crate::config::{APP_ID, VERSION};
 
@@ -7,13 +9,13 @@ pub struct AboutDialog {}
 
 impl SimpleComponent for AboutDialog {
     type Init = ();
-    type Widgets = adw::AboutWindow;
+    type Widgets = adw::AboutDialog;
     type Input = ();
     type Output = ();
-    type Root = adw::AboutWindow;
+    type Root = adw::AboutDialog;
 
     fn init_root() -> Self::Root {
-        adw::AboutWindow::builder()
+        adw::AboutDialog::builder()
             .application_icon(APP_ID)
             // Insert your license of choice here
             // .license_type(gtk::License::MitX11)
@@ -28,12 +30,12 @@ impl SimpleComponent for AboutDialog {
             .copyright("© 2023 Alessio Biancalana")
             .developers(vec!["Alessio Biancalana"])
             .designers(vec!["Alessio Biancalana"])
-            .hide_on_close(true)
+            .can_close(true)
             .build()
     }
 
     fn init(
-        _: Self::Init,
+        _init: Self::Init,
         root: Self::Root,
         _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
@@ -45,6 +47,7 @@ impl SimpleComponent for AboutDialog {
     }
 
     fn update_view(&self, dialog: &mut Self::Widgets, _sender: ComponentSender<Self>) {
-        dialog.present();
+        let window = dialog.toplevel_window();
+        dialog.present(window.as_ref());
     }
 }

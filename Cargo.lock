@@ -100,7 +100,7 @@ checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 [[package]]
 name = "article_scraper"
 version = "2.1.0"
-source = "git+https://gitlab.com/news-flash/article_scraper.git#b3ce28632dab8678ae04789aeae76262283b1bb0"
+source = "git+https://gitlab.com/news-flash/article_scraper.git#7fcb781c6819528893fcbaa414a57ce15bc51125"
 dependencies = [
  "base64 0.22.1",
  "chrono",

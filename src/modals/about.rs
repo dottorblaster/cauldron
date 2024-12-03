@@ -1,5 +1,5 @@
 use relm4::{
-    adw, adw::prelude::AdwDialogExt, ComponentParts, ComponentSender, RelmWidgetExt,
+    adw, adw::prelude::AdwDialogExt, gtk, ComponentParts, ComponentSender, RelmWidgetExt,
     SimpleComponent,
 };
 
@@ -18,16 +18,16 @@ impl SimpleComponent for AboutDialog {
         adw::AboutDialog::builder()
             .application_icon(APP_ID)
             // Insert your license of choice here
-            // .license_type(gtk::License::MitX11)
+            .license_type(gtk::License::Apache20)
             // Insert your website here
-            // .website("https://gitlab.gnome.org/bilelmoussaoui/cauldron/")
+            .website("https://github.com/dottorblaster/cauldron")
             // Insert your Issues page
-            // .issue_url("https://gitlab.gnome.org/World/Rust/cauldron/-/issues")
+            .issue_url("https://github.com/dottorblaster/cauldron/issues")
             // Insert your application name here
-            .application_name("Relm4-template")
+            .application_name("Cauldron")
             .version(VERSION)
             .translator_credits("translator-credits")
-            .copyright("© 2023 Alessio Biancalana")
+            .copyright("© 2024 Alessio Biancalana")
             .developers(vec!["Alessio Biancalana"])
             .designers(vec!["Alessio Biancalana"])
             .can_close(true)

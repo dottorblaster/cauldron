@@ -15,3 +15,13 @@ option(
   value: '99536-5a753dbe04d6ade99e80b4ab',
   description: 'Pocket consumer key.'
 )
+
+option(
+  'sandboxed-build',
+  type : 'boolean',
+  value : false,
+  description: 'Whether the build happens in a sandbox.' +
+               'When that is the case, cargo will not be able to download the dependencies during' +
+               'the build so they are assumed to be in `{meson.project_source_root()}/cargo`.'
+)
+

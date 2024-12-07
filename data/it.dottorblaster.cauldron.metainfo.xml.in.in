@@ -6,7 +6,7 @@
   <!-- Insert your license of choice here -->
   <project_license>Apache-2.0</project_license>
   <name>Cauldron</name>
-  <summary></summary>
+  <summary>A Pocket client for Linux</summary>
   <description>
     <p>Cauldron is a GNOME desktop application written in Rust that allows you to read articles stored in your Pocket account.</p>
   </description>

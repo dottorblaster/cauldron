@@ -2,8 +2,7 @@ use relm4::{
     actions::{RelmAction, RelmActionGroup},
     adw,
     factory::FactoryVecDeque,
-    gtk, main_application, Component, ComponentController, ComponentParts, ComponentSender,
-    Controller,
+    gtk, main_application, Component, ComponentParts, ComponentSender,
 };
 
 use gio::prelude::{ApplicationExtManual, FileExt};
@@ -26,7 +25,6 @@ use reqwest::Client;
 use url::Url;
 
 pub(super) struct App {
-    about_dialog: Controller<AboutDialog>,
     loading: bool,
     auth_code: String,
     access_token: String,
@@ -260,10 +258,7 @@ impl Component for App {
                 }
             });
 
-        let about_dialog = AboutDialog::builder().launch(()).detach();
-
         let model = Self {
-            about_dialog,
             auth_code,
             access_token,
             username,
@@ -288,9 +283,8 @@ impl Component for App {
         };
 
         let about_action = {
-            let sender = model.about_dialog.sender().clone();
             RelmAction::<AboutAction>::new_stateless(move |_| {
-                sender.send(()).unwrap();
+                AboutDialog::builder().launch(()).detach();
             })
         };
 

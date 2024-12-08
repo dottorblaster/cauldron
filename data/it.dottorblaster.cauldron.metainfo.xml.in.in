@@ -15,6 +15,10 @@
       <image>https://raw.githubusercontent.com/dottorblaster/cauldron/refs/heads/master/data/resources/screenshots/screenshot2.png</image>
       <caption>Main window</caption>
     </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/dottorblaster/cauldron/refs/heads/master/data/resources/screenshots/screenshot3.png</image>
+      <caption>Dark mode</caption>
+    </screenshot>
   </screenshots>
   <url type="homepage">https://github.com/dottorblaster/cauldron</url>
   <url type="bugtracker">https://github.com/dottorblaster/cauldron/issues</url>

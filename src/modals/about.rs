@@ -1,6 +1,6 @@
+use gtk::prelude::GtkApplicationExt;
 use relm4::{
-    adw, adw::prelude::AdwDialogExt, gtk, ComponentParts, ComponentSender, RelmWidgetExt,
-    SimpleComponent,
+    adw, adw::prelude::AdwDialogExt, gtk, ComponentParts, ComponentSender, SimpleComponent,
 };
 
 use crate::config::{APP_ID, VERSION};
@@ -42,12 +42,10 @@ impl SimpleComponent for AboutDialog {
         let model = Self {};
 
         let widgets = root.clone();
+        widgets.present(Some(&relm4::main_application().windows()[0]));
 
         ComponentParts { model, widgets }
     }
 
-    fn update_view(&self, dialog: &mut Self::Widgets, _sender: ComponentSender<Self>) {
-        let window = dialog.toplevel_window();
-        dialog.present(window.as_ref());
-    }
+    fn update_view(&self, _dialog: &mut Self::Widgets, _sender: ComponentSender<Self>) {}
 }

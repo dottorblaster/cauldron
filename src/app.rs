@@ -346,14 +346,18 @@ impl Component for App {
             }
             AppMsg::ArchiveArticle => {
                 let access_token = self.access_token.clone();
-                let item_id = self.article_item_id.clone().unwrap();
 
-                sender.oneshot_command(async move {
-                    let client = pocket::client();
-                    let _ = pocket::archive(&client, &access_token, &item_id).await;
+                match self.article_item_id.clone() {
+                    Some(item_id) => {
+                        sender.oneshot_command(async move {
+                            let client = pocket::client();
+                            let _ = pocket::archive(&client, &access_token, &item_id).await;
 
-                    CommandMsg::ArticleArchived(item_id)
-                });
+                            CommandMsg::ArticleArchived(item_id)
+                        });
+                    }
+                    None => {}
+                }
             }
         }
     }

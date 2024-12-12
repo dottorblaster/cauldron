@@ -83,8 +83,9 @@ pub fn parse_json_response(downloaded_articles: Vec<PocketArticle>) -> Vec<Artic
 #[cfg(test)]
 mod tests {
     use super::*;
+    use flume;
+    use relm4::factory::{DynamicIndex, FactoryComponent, FactorySender, FactoryVecDeque};
     use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::sync::Arc;
 
     #[test]
     fn test_parse_json_response() {
@@ -100,10 +101,14 @@ mod tests {
 
     #[test]
     fn test_init_model() {
-        let dynamic_index = DynamicIndex {
-            inner: Arc::new(AtomicUsize::new(5)),
-        };
-        //let test_sender = FactorySender::new();
-        //let article = Article::init_model(("a".to_owned(), "b".to_owned(), "c".to_owned()));
+        let _ = relm4::gtk::init();
+        let (sender, _) = flume::unbounded();
+        let test_sender: relm4::Sender<()> = sender.into();
+        let mut articles: FactoryVecDeque<Article> = FactoryVecDeque::builder()
+            .launch(gtk::ListBox::default())
+            .forward(&test_sender, |_| {});
+        articles
+            .guard()
+            .push_back(("".to_owned(), "".to_owned(), "".to_owned()));
     }
 }

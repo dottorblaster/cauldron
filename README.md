@@ -18,6 +18,10 @@ Cauldron is a GNOME desktop application written in Rust that allows you to read 
 
 ## Installation
 
+<a href='https://flathub.org/apps/it.dottorblaster.cauldron' target="_blank">
+    <img width='240' alt='Get it on Flathub' src='https://flathub.org/api/badge?locale=en'/>
+</a>
+
 Cauldron is available as a Flatpak package, making it easy to install and run on your GNOME-based system. You can find the latest release on Flathub.
 
 ## Getting Started

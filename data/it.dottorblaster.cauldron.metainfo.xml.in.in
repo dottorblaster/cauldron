@@ -6,9 +6,9 @@
   <!-- Insert your license of choice here -->
   <project_license>Apache-2.0</project_license>
   <name>Cauldron</name>
-  <summary>A Pocket client for Linux</summary>
+  <summary>Collect content from the web</summary>
   <description>
-    <p>Cauldron is a GNOME desktop application written in Rust that allows you to read articles stored in your Pocket account.</p>
+    <p>Cauldron lets you access and use Pocket, an online service for storing web bookmarks. Save anything that piques your interest, and get back to it when you have time.</p>
   </description>
   <screenshots>
     <screenshot type="default">
@@ -22,18 +22,17 @@
   </screenshots>
   <url type="homepage">https://github.com/dottorblaster/cauldron</url>
   <url type="bugtracker">https://github.com/dottorblaster/cauldron/issues</url>
+  <url type="vcs-browser">https://github.com/dottorblaster/cauldron</url>
+  <url type="contribute">https://github.com/dottorblaster/cauldron?tab=readme-ov-file#building-the-project</url>
+  <url type="translate">https://github.com/dottorblaster/cauldron/tree/master/po</url>
   <content_rating type="oars-1.1" />
   <releases>
-    <release version="0.1.0" date="2019-07-11" />
+    <release version="0.3.0" date="2024-12-07">
+      <description translatable="no">
+        <p>Initial Flathub release.</p>
+      </description>
+    </release>
   </releases>
-  <kudos>
-     <!--
-       GNOME Software kudos:
-       https://gitlab.gnome.org/GNOME/gnome-software/-/blob/main/doc/kudos.md
-     -->
-     <kudo>ModernToolkit</kudo>
-     <kudo>HiDpiIcon</kudo>
-  </kudos>
   <!-- developer_name tag deprecated with Appstream 1.0 -->
   <developer_name translatable="no">Alessio Biancalana</developer_name>
   <!-- Introduced with Appstream 1.0, but not yet fully supported by corresponding projects -->
@@ -47,4 +46,12 @@
     <color type="primary" scheme_preference="light">#3be0dd</color>
     <color type="primary" scheme_preference="dark">#5f16b9</color>
   </branding>
+  <supports>
+    <control>keyboard</control>
+    <control>touch</control>
+    <control>pointing</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
 </component>

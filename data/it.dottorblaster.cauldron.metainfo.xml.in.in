@@ -44,7 +44,7 @@
   <translation type="gettext">@gettext-package@</translation>
   <launchable type="desktop-id">@app-id@.desktop</launchable>
   <branding>
-    <color type="primary" scheme_preference="light">#ffbe6f</color>
-    <color type="primary" scheme_preference="dark">#a599a5</color>
+    <color type="primary" scheme_preference="light">#3be0dd</color>
+    <color type="primary" scheme_preference="dark">#5f16b9</color>
   </branding>
 </component>

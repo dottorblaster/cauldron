@@ -30,6 +30,7 @@ impl SimpleComponent for AboutDialog {
             .copyright("© 2024 Alessio Biancalana")
             .developers(vec!["Alessio Biancalana"])
             .designers(vec!["Alessio Biancalana"])
+            .artists(vec!["Brage Fuglseth https://bragefuglseth.dev"])
             .can_close(true)
             .build()
     }

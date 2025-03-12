@@ -3,7 +3,7 @@
     <filter id="a" height="100%" width="100%" x="0%" y="0%">
         <feColorMatrix color-interpolation-filters="sRGB" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"/>
     </filter>
-    <radialGradient id="b" cx="34.275307" cy="226.434647" gradientTransform="matrix(1.706475 0 0 1.584575 -31.359833 -312.47261)" gradientUnits="userSpaceOnUse" r="56.000301">
+    <radialGradient id="b" cx="55.881191" cy="234.397034" gradientTransform="matrix(1.142851 0 0 1.061213 0.136124 -192.74518)" gradientUnits="userSpaceOnUse" r="56.000301">
         <stop offset="0" stop-color="#919dde"/>
         <stop offset="1" stop-color="#3b4aab"/>
     </radialGradient>

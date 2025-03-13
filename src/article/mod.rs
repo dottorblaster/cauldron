@@ -64,7 +64,7 @@ impl FactoryComponent for Article {
 }
 
 pub fn parse_json_response(downloaded_articles: Vec<PocketArticle>) -> Vec<Article> {
-    downloaded_articles
+    let mut parsed_articles: Vec<Article> = downloaded_articles
         .iter()
         .map(
             |PocketArticle {
@@ -77,7 +77,12 @@ pub fn parse_json_response(downloaded_articles: Vec<PocketArticle>) -> Vec<Artic
                 uri: resolved_url.to_owned(),
             },
         )
-        .collect()
+        .collect();
+
+    parsed_articles.sort_by_key(|element| element.item_id.parse::<i64>().unwrap_or(0));
+    parsed_articles.reverse();
+
+    parsed_articles
 }
 
 #[cfg(test)]

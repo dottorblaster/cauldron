@@ -188,7 +188,7 @@ h3 a,
 h4 a,
 h5 a,
 h6 a {
-    color: #1d1f1c;
+    color: #3584e4;
 }
 
 h1 {
@@ -246,7 +246,6 @@ p {
 
 pre,
 code {
-    background-color: #eee;
     margin: 0 0 1em;
     white-space: pre-wrap;
     font-family: monospace, Consolas, Menlo, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, serif;
@@ -271,11 +270,13 @@ not(h1) a {
 }
 
 a :not(img){
-    outline:none;
+    color: #3584e4;
+    outline: none;
     overflow: hidden;
 }
 
 a {
+    color: #3584e4;
     text-overflow: ellipsis;
 }
 

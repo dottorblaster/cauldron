@@ -1,6 +1,6 @@
 [package]
 name = "cauldron"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["Alessio Biancalana <alessio@dottorblaster.it>"]
 edition = "2021"
 publish = false

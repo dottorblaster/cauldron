@@ -27,9 +27,9 @@
   <url type="translate">https://github.com/dottorblaster/cauldron/tree/master/po</url>
   <content_rating type="oars-1.1" />
   <releases>
-    <release version="0.4.1" date="2024-12-07">
+    <release version="0.4.2" date="2025-03-14">
       <description translatable="no">
-        <p>New icon by Brage Fuglseth! Also, now the reading list is actually ordered.</p>
+        <p>Links in articles are now way more readable. Also, more visual tweaks to the article view to appease your visual taste.</p>
       </description>
     </release>
   </releases>

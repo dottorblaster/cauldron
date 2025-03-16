@@ -89,8 +89,7 @@ pub fn parse_json_response(downloaded_articles: Vec<PocketArticle>) -> Vec<Artic
 mod tests {
     use super::*;
     use flume;
-    use relm4::factory::{DynamicIndex, FactoryComponent, FactorySender, FactoryVecDeque};
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use relm4::factory::FactoryVecDeque;
 
     #[test]
     fn test_parse_json_response() {
@@ -104,9 +103,8 @@ mod tests {
         assert_eq!(articles[0].item_id, "item_id_one")
     }
 
-    #[test]
+    #[gtk::test]
     fn test_init_model() {
-        let _ = relm4::gtk::init();
         let (sender, _) = flume::unbounded();
         let test_sender: relm4::Sender<()> = sender.into();
         let mut articles: FactoryVecDeque<Article> = FactoryVecDeque::builder()

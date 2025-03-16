@@ -1,4 +1,5 @@
 use relm4::{
+    abstractions::Toaster,
     actions::{RelmAction, RelmActionGroup},
     adw,
     factory::FactoryVecDeque,
@@ -19,7 +20,7 @@ use crate::article::{Article, ArticleOutput};
 use crate::config::{APP_ID, PROFILE, RESOURCES_FILE};
 use crate::modals::about::AboutDialog;
 use crate::network::pocket;
-use crate::persistence::token;
+use crate::persistence::{clipboard, token};
 use article_scraper::{FtrConfigEntry, FullTextParser, Readability};
 use reqwest::Client;
 use url::Url;
@@ -33,6 +34,7 @@ pub(super) struct App {
     article_html: Option<String>,
     article_uri: Option<String>,
     article_item_id: Option<String>,
+    toaster: Toaster,
 }
 
 #[derive(Debug)]
@@ -43,6 +45,7 @@ pub(super) enum AppMsg {
     ArticleSelected(String, String),
     RefreshArticles,
     ArchiveArticle,
+    CopyArticleUrl,
 }
 
 #[derive(Debug)]
@@ -160,67 +163,78 @@ impl Component for App {
                     set_orientation: gtk::Orientation::Vertical,
                 },
 
-                gtk::Box {
-                    set_orientation: gtk::Orientation::Vertical,
-                    set_hexpand: true,
+                #[local_ref]
+                toast_overlay -> adw::ToastOverlay {
+                    set_vexpand: true,
 
-                    #[name = "content_header"]
-                    adw::HeaderBar {
-                        #[name = "back_button"]
-                        pack_start = &gtk::Button {
-                            set_icon_name: "shoe-box-symbolic",
-                            connect_clicked => AppMsg::ArchiveArticle
-                        },
+                    gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
+                        set_hexpand: true,
 
-                        #[wrap(Some)]
-                        set_title_widget = &adw::WindowTitle {
-                            set_title: "Cauldron",
-                        }
-                    },
-                    gtk::Label {
-                        #[watch]
-                        set_visible: model.article_html.is_none(),
-                        add_css_class: "title-1",
-                        set_vexpand: true,
-                        set_text: "Select an article",
-                    },
-                    gtk::ScrolledWindow {
-                        #[watch]
-                        set_visible: model.article_html.is_some(),
-                        set_propagate_natural_height: true,
-                        set_vexpand: true,
-
-                        WebView {
-                            set_widget_name: "browser",
-                            connect_resource_load_started: |webview, _, _| {
-                                let res = gio::Resource::load(RESOURCES_FILE).expect("Could not load gresource file");
-                                gio::resources_register(&res);
-
-                                let data = res
-                                    .lookup_data(
-                                        "/it/dottorblaster/cauldron/article_view/style.css",
-                                        gio::ResourceLookupFlags::NONE,
-                                    )
-                                    .unwrap();
-                                let css_string = &glib::GString::from_utf8_checked(data.to_vec()).unwrap();
-
-                                let user_style_sheet = UserStyleSheet::new(
-                                    css_string,
-                                    UserContentInjectedFrames::TopFrame,
-                                    UserStyleLevel::User,
-                                    &[],
-                                    &[],
-                                );
-
-                                match webview.user_content_manager() {
-                                    Some(content_manager) => {
-                                        content_manager.add_style_sheet(&user_style_sheet);
-                                    },
-                                    None => {}
-                                }
+                        #[name = "content_header"]
+                        adw::HeaderBar {
+                            #[name = "back_button"]
+                            pack_start = &gtk::Box{
+                                gtk::Button {
+                                    set_icon_name: "shoe-box-symbolic",
+                                    connect_clicked => AppMsg::ArchiveArticle
+                                },
+                                gtk::Button {
+                                    set_icon_name: "edit-copy-symbolic",
+                                    connect_clicked => AppMsg::CopyArticleUrl
+                                },
                             },
+
+                            #[wrap(Some)]
+                            set_title_widget = &adw::WindowTitle {
+                                set_title: "Cauldron",
+                            }
+                        },
+                        gtk::Label {
                             #[watch]
-                            load_html: (&model.article_html.clone().unwrap_or_default(), Some("https://dottorblaster.it"))
+                            set_visible: model.article_html.is_none(),
+                            add_css_class: "title-1",
+                            set_vexpand: true,
+                            set_text: "Select an article",
+                        },
+                        gtk::ScrolledWindow {
+                            #[watch]
+                            set_visible: model.article_html.is_some(),
+                            set_propagate_natural_height: true,
+                            set_vexpand: true,
+
+                            WebView {
+                                set_widget_name: "browser",
+                                connect_resource_load_started: |webview, _, _| {
+                                    let res = gio::Resource::load(RESOURCES_FILE).expect("Could not load gresource file");
+                                    gio::resources_register(&res);
+
+                                    let data = res
+                                        .lookup_data(
+                                            "/it/dottorblaster/cauldron/article_view/style.css",
+                                            gio::ResourceLookupFlags::NONE,
+                                        )
+                                        .unwrap();
+                                    let css_string = &glib::GString::from_utf8_checked(data.to_vec()).unwrap();
+
+                                    let user_style_sheet = UserStyleSheet::new(
+                                        css_string,
+                                        UserContentInjectedFrames::TopFrame,
+                                        UserStyleLevel::User,
+                                        &[],
+                                        &[],
+                                    );
+
+                                    match webview.user_content_manager() {
+                                        Some(content_manager) => {
+                                            content_manager.add_style_sheet(&user_style_sheet);
+                                        },
+                                        None => {}
+                                    }
+                                },
+                                #[watch]
+                                load_html: (&model.article_html.clone().unwrap_or_default(), Some("https://dottorblaster.it"))
+                            },
                         },
                     },
                 },
@@ -267,7 +281,10 @@ impl Component for App {
             article_uri: None,
             article_item_id: None,
             loading: false,
+            toaster: Toaster::default(),
         };
+
+        let toast_overlay = model.toaster.overlay_widget();
 
         let articles_list_box = model.articles.widget();
 
@@ -359,6 +376,17 @@ impl Component for App {
                     None => {}
                 }
             }
+            AppMsg::CopyArticleUrl => match self.article_uri.clone() {
+                Some(uri) => {
+                    let _ = clipboard::copy(&uri);
+                    let toast = adw::Toast::builder()
+                        .title("URL copied to clipboard.")
+                        .timeout(3000)
+                        .build();
+                    self.toaster.add_toast(toast);
+                }
+                None => {}
+            },
         }
     }
 

@@ -378,7 +378,7 @@ impl Component for App {
             }
             AppMsg::CopyArticleUrl => match self.article_uri.clone() {
                 Some(uri) => {
-                    let _ = clipboard::copy_to_clipboard(&uri);
+                    let _ = clipboard::copy(&uri);
                     let toast = adw::Toast::builder()
                         .title("URL copied to clipboard.")
                         .timeout(3000)

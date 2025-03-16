@@ -46,6 +46,7 @@ pub(super) enum AppMsg {
     RefreshArticles,
     ArchiveArticle,
     CopyArticleUrl,
+    OpenArticle,
 }
 
 #[derive(Debug)]
@@ -55,6 +56,7 @@ pub(super) enum CommandMsg {
     SetToken((String, String)),
     SetAuthCode(String),
     ArticleArchived(String),
+    OpenUrl(String),
 }
 
 relm4::new_action_group!(pub(super) WindowActionGroup, "win");
@@ -182,6 +184,10 @@ impl Component for App {
                                 gtk::Button {
                                     set_icon_name: "edit-copy-symbolic",
                                     connect_clicked => AppMsg::CopyArticleUrl
+                                },
+                                gtk::Button {
+                                    set_icon_name: "compass-symbolic",
+                                    connect_clicked => AppMsg::OpenArticle
                                 },
                             },
 
@@ -387,6 +393,11 @@ impl Component for App {
                 }
                 None => {}
             },
+            AppMsg::OpenArticle => {
+                if let Some(uri) = self.article_uri.clone() {
+                    sender.oneshot_command(async move { CommandMsg::OpenUrl(uri.to_owned()) });
+                }
+            }
         }
     }
 
@@ -433,6 +444,9 @@ impl Component for App {
                 self.article_uri = None;
                 self.article_item_id = None;
                 sender.input(AppMsg::RefreshArticles);
+            }
+            CommandMsg::OpenUrl(url) => {
+                open::that(url).expect("Could not open the browser");
             }
         }
     }

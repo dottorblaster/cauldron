@@ -106,140 +106,141 @@ impl Component for App {
                 } else {
                     None
                 },
-            adw::Leaflet{
-                gtk::Box {
-                    set_width_request: 350,
-                    set_orientation: gtk::Orientation::Vertical,
-
-                    adw::HeaderBar {
-                        set_show_end_title_buttons: false,
-                        set_show_title: false,
-                        pack_start = if model.loading {
-                            &adw::Spinner {
-                                set_halign: gtk::Align::Center,
-                                set_valign: gtk::Align::Center,
-                                set_width_request: 20,
-                                set_height_request: 20,
-                            }
-                        } else {
-                            &gtk::Button {
-                                set_icon_name: "view-refresh-symbolic",
-                                connect_clicked => AppMsg::RefreshArticles
-                            }
-                        },
-
-                        pack_end = &gtk::MenuButton {
-                            set_icon_name: "open-menu-symbolic",
-                            set_menu_model: Some(&primary_menu),
-                        },
-                    },
-
-                    gtk::Button::with_label("Login") {
-                        #[watch]
-                        set_visible: model.access_token.is_empty(),
-                        connect_clicked => AppMsg::StartLogin,
-                    },
-                    gtk::ScrolledWindow {
-                        add_css_class: "navigation-sidebar",
-                        set_propagate_natural_height: true,
-
-                        gtk::Box {
-                            set_margin_end: 12,
-                            set_margin_top: 12,
-                            set_margin_start: 12,
-                            set_margin_bottom: 12,
-                            set_orientation: gtk::Orientation::Vertical,
-
-                            #[local_ref]
-                            articles_list_box -> gtk::ListBox {
-                                #[watch]
-                                set_visible: !model.access_token.is_empty(),
-                                set_selection_mode: gtk::SelectionMode::Single,
-                                add_css_class: "navigation-sidebar",
-                            }
-                        }
-                    }
-                },
-
-                append = &gtk::Separator {
-                    set_orientation: gtk::Orientation::Vertical,
-                },
-
-                #[local_ref]
-                toast_overlay -> adw::ToastOverlay {
-                    set_vexpand: true,
-
+            adw::NavigationSplitView {
+                #[wrap(Some)]
+                set_sidebar = &adw::NavigationPage {
                     gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
                         set_hexpand: true,
+                        set_orientation: gtk::Orientation::Vertical,
 
-                        #[name = "content_header"]
                         adw::HeaderBar {
-                            #[name = "back_button"]
-                            pack_start = &gtk::Box{
-                                gtk::Button {
-                                    set_icon_name: "shoe-box-symbolic",
-                                    connect_clicked => AppMsg::ArchiveArticle
-                                },
-                                gtk::Button {
-                                    set_icon_name: "edit-copy-symbolic",
-                                    connect_clicked => AppMsg::CopyArticleUrl
-                                },
-                                gtk::Button {
-                                    set_icon_name: "compass-symbolic",
-                                    connect_clicked => AppMsg::OpenArticle
-                                },
+                            set_show_end_title_buttons: false,
+                            set_show_title: false,
+                            pack_start = if model.loading {
+                                &adw::Spinner {
+                                    set_halign: gtk::Align::Center,
+                                    set_valign: gtk::Align::Center,
+                                    set_width_request: 20,
+                                    set_height_request: 20,
+                                }
+                            } else {
+                                &gtk::Button {
+                                    set_icon_name: "view-refresh-symbolic",
+                                    connect_clicked => AppMsg::RefreshArticles
+                                }
                             },
 
-                            #[wrap(Some)]
-                            set_title_widget = &adw::WindowTitle {
-                                set_title: "Cauldron",
-                            }
+                            pack_end = &gtk::MenuButton {
+                                set_icon_name: "open-menu-symbolic",
+                                set_menu_model: Some(&primary_menu),
+                            },
                         },
-                        gtk::Label {
+
+                        gtk::Button::with_label("Login") {
                             #[watch]
-                            set_visible: model.article_html.is_none(),
-                            add_css_class: "title-1",
-                            set_vexpand: true,
-                            set_text: "Select an article",
+                            set_visible: model.access_token.is_empty(),
+                            connect_clicked => AppMsg::StartLogin,
                         },
                         gtk::ScrolledWindow {
-                            #[watch]
-                            set_visible: model.article_html.is_some(),
+                            add_css_class: "navigation-sidebar",
                             set_propagate_natural_height: true,
-                            set_vexpand: true,
 
-                            WebView {
-                                set_widget_name: "browser",
-                                connect_resource_load_started: |webview, _, _| {
-                                    let res = gio::Resource::load(RESOURCES_FILE).expect("Could not load gresource file");
-                                    gio::resources_register(&res);
+                            gtk::Box {
+                                set_margin_end: 12,
+                                set_margin_top: 12,
+                                set_margin_start: 12,
+                                set_margin_bottom: 12,
+                                set_orientation: gtk::Orientation::Vertical,
 
-                                    let data = res
-                                        .lookup_data(
-                                            "/it/dottorblaster/cauldron/article_view/style.css",
-                                            gio::ResourceLookupFlags::NONE,
-                                        )
-                                        .unwrap();
-                                    let css_string = &glib::GString::from_utf8_checked(data.to_vec()).unwrap();
+                                #[local_ref]
+                                articles_list_box -> gtk::ListBox {
+                                    #[watch]
+                                    set_visible: !model.access_token.is_empty(),
+                                    set_selection_mode: gtk::SelectionMode::Single,
+                                    add_css_class: "navigation-sidebar",
+                                }
+                            }
+                        }
+                    },
+                },
 
-                                    let user_style_sheet = UserStyleSheet::new(
-                                        css_string,
-                                        UserContentInjectedFrames::TopFrame,
-                                        UserStyleLevel::User,
-                                        &[],
-                                        &[],
-                                    );
+                adw::NavigationPage{
+                    #[local_ref]
+                    toast_overlay -> adw::ToastOverlay {
+                        set_vexpand: true,
 
-                                    match webview.user_content_manager() {
-                                        Some(content_manager) => {
-                                            content_manager.add_style_sheet(&user_style_sheet);
-                                        },
-                                        None => {}
-                                    }
+                        gtk::Box {
+                            set_orientation: gtk::Orientation::Vertical,
+                            set_hexpand: true,
+
+                            #[name = "content_header"]
+                            adw::HeaderBar {
+                                #[name = "back_button"]
+                                pack_start = &gtk::Box{
+                                    gtk::Button {
+                                        set_icon_name: "shoe-box-symbolic",
+                                        connect_clicked => AppMsg::ArchiveArticle
+                                    },
+                                    gtk::Button {
+                                        set_icon_name: "edit-copy-symbolic",
+                                        connect_clicked => AppMsg::CopyArticleUrl
+                                    },
+                                    gtk::Button {
+                                        set_icon_name: "compass-symbolic",
+                                        connect_clicked => AppMsg::OpenArticle
+                                    },
                                 },
+
+                                #[wrap(Some)]
+                                set_title_widget = &adw::WindowTitle {
+                                    set_title: "Cauldron",
+                                }
+                            },
+                            gtk::Label {
                                 #[watch]
-                                load_html: (&model.article_html.clone().unwrap_or_default(), Some("https://dottorblaster.it"))
+                                set_visible: model.article_html.is_none(),
+                                add_css_class: "title-1",
+                                set_vexpand: true,
+                                set_text: "Select an article",
+                            },
+                            gtk::ScrolledWindow {
+                                #[watch]
+                                set_visible: model.article_html.is_some(),
+                                set_propagate_natural_height: true,
+                                set_vexpand: true,
+
+                                WebView {
+                                    set_widget_name: "browser",
+                                    connect_resource_load_started: |webview, _, _| {
+                                        let res = gio::Resource::load(RESOURCES_FILE).expect("Could not load gresource file");
+                                        gio::resources_register(&res);
+
+                                        let data = res
+                                            .lookup_data(
+                                                "/it/dottorblaster/cauldron/article_view/style.css",
+                                                gio::ResourceLookupFlags::NONE,
+                                            )
+                                            .unwrap();
+                                        let css_string = &glib::GString::from_utf8_checked(data.to_vec()).unwrap();
+
+                                        let user_style_sheet = UserStyleSheet::new(
+                                            css_string,
+                                            UserContentInjectedFrames::TopFrame,
+                                            UserStyleLevel::User,
+                                            &[],
+                                            &[],
+                                        );
+
+                                        match webview.user_content_manager() {
+                                            Some(content_manager) => {
+                                                content_manager.add_style_sheet(&user_style_sheet);
+                                            },
+                                            None => {}
+                                        }
+                                    },
+                                    #[watch]
+                                    load_html: (&model.article_html.clone().unwrap_or_default(), Some("https://dottorblaster.it"))
+                                },
                             },
                         },
                     },

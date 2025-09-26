@@ -18,7 +18,7 @@ anyhow = "1.0.100"
 oauth2 = "5.0.0"
 open = "5.3.2"
 reqwest = { version = "0.12.23", features = ["blocking", "json"] }
-serde = "1.0.219"
+serde = "1.0.227"
 serde_json = "1.0.140"
 url = "2.5.4"
 webkit6 = "0.4.0"

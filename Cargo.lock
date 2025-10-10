@@ -734,9 +734,9 @@ dependencies = [
 
 [[package]]
 name = "gettext-rs"
-version = "0.7.2"
+version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a44e92f7dc08430aca7ed55de161253a22276dfd69c5526e5c5e95d1f7cf338a"
+checksum = "928a5b549345ae7905aa27dab614c371fb74d65425b395723ef49d18d65872be"
 dependencies = [
  "gettext-sys",
  "locale_config",

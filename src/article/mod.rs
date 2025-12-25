@@ -2,7 +2,7 @@ use relm4::adw::{prelude::ActionRowExt, ActionRow};
 use relm4::factory::{DynamicIndex, FactoryComponent, FactorySender};
 use relm4::gtk;
 
-use crate::network::pocket::PocketArticle;
+use crate::network::instapaper::InstapaperBookmark;
 
 #[derive(Debug)]
 pub struct Article {
@@ -63,24 +63,23 @@ impl FactoryComponent for Article {
     }
 }
 
-pub fn parse_json_response(downloaded_articles: Vec<PocketArticle>) -> Vec<Article> {
-    let mut parsed_articles: Vec<Article> = downloaded_articles
+pub fn parse_instapaper_response(bookmarks: Vec<InstapaperBookmark>) -> Vec<Article> {
+    let mut parsed_articles: Vec<Article> = bookmarks
         .iter()
-        .map(
-            |PocketArticle {
-                 item_id,
-                 resolved_title,
-                 resolved_url,
-             }| Article {
-                item_id: item_id.to_owned(),
-                title: resolved_title.to_owned(),
-                uri: resolved_url.to_owned(),
+        .map(|bookmark| Article {
+            item_id: bookmark.bookmark_id.to_string(),
+            title: if bookmark.title.is_empty() {
+                bookmark.url.clone()
+            } else {
+                bookmark.title.clone()
             },
-        )
+            uri: bookmark.url.clone(),
+        })
         .collect();
 
-    parsed_articles.sort_by_key(|element| element.item_id.parse::<i64>().unwrap_or(0));
-    parsed_articles.reverse();
+    // Sort by bookmark_id descending (newest first)
+    parsed_articles
+        .sort_by_key(|element| std::cmp::Reverse(element.item_id.parse::<i64>().unwrap_or(0)));
 
     parsed_articles
 }
@@ -92,15 +91,38 @@ mod tests {
     use relm4::factory::FactoryVecDeque;
 
     #[test]
-    fn test_parse_json_response() {
-        let downloaded_articles = vec![PocketArticle {
-            item_id: "item_id_one".to_owned(),
-            resolved_title: "this_is_a_resolved_title".to_owned(),
-            resolved_url: "this_is_a_resolved_url".to_owned(),
+    fn test_parse_instapaper_response() {
+        let bookmarks = vec![InstapaperBookmark {
+            type_field: "bookmark".to_owned(),
+            bookmark_id: 12345,
+            title: "Test Article Title".to_owned(),
+            url: "https://example.com/article".to_owned(),
+            progress: 0.0,
+            time: 1234567890,
+            hash: "abc123".to_owned(),
         }];
 
-        let articles = parse_json_response(downloaded_articles);
-        assert_eq!(articles[0].item_id, "item_id_one")
+        let articles = parse_instapaper_response(bookmarks);
+        assert_eq!(articles[0].item_id, "12345");
+        assert_eq!(articles[0].title, "Test Article Title");
+        assert_eq!(articles[0].uri, "https://example.com/article");
+    }
+
+    #[test]
+    fn test_parse_instapaper_response_empty_title() {
+        let bookmarks = vec![InstapaperBookmark {
+            type_field: "bookmark".to_owned(),
+            bookmark_id: 12345,
+            title: "".to_owned(),
+            url: "https://example.com/article".to_owned(),
+            progress: 0.0,
+            time: 1234567890,
+            hash: "abc123".to_owned(),
+        }];
+
+        let articles = parse_instapaper_response(bookmarks);
+        // When title is empty, should use URL as title
+        assert_eq!(articles[0].title, "https://example.com/article");
     }
 
     #[gtk::test]

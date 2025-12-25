@@ -1,1 +1,1 @@
-pub mod pocket;
+pub mod instapaper;

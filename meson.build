@@ -49,6 +49,7 @@ else
 endif
 
 consumer_key = get_option('consumer_key')
+consumer_secret = get_option('consumer_secret')
 
 meson.add_dist_script(
   'build-aux/dist-vendor.sh',

@@ -15,11 +15,12 @@ relm4 = { version = "0.9.1", features = ["libadwaita", "gnome_47"] }
 tracing = "0.1.41"
 tracing-subscriber = "0.3"
 anyhow = "1.0.100"
-oauth2 = "5.0.0"
+oauth1-request = "0.6"
 open = "5.3.2"
 reqwest = { version = "0.12.23", features = ["blocking", "json"] }
-serde = "1.0.219"
+serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 url = "2.5.4"
+urlencoding = "2.1"
 webkit6 = "0.4.0"
 flume = "0.11.1"

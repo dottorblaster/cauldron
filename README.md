@@ -28,7 +28,7 @@ Cauldron is available as a Flatpak package, making it easy to install and run on
 
 - Install the Cauldron Flatpak package from the GNOME Flathub.
 - Launch the application from your GNOME application menu.
-- Sign in to your Pocket account when prompted.
+- Sign in to your Instapaper account when prompted.
 - Start reading your saved articles!
 
 ## Building the project

@@ -3,10 +3,9 @@ use relm4::{
     actions::{RelmAction, RelmActionGroup},
     adw,
     factory::FactoryVecDeque,
-    gtk, main_application, Component, ComponentParts, ComponentSender,
+    gtk, main_application, Component, ComponentParts, ComponentSender, Controller,
 };
 
-use gio::prelude::{ApplicationExtManual, FileExt};
 use gtk::prelude::{
     ApplicationExt, ApplicationWindowExt, ButtonExt, GtkWindowExt, OrientableExt, SettingsExt,
     WidgetExt,
@@ -19,29 +18,32 @@ use webkit6::{
 use crate::article::{Article, ArticleOutput};
 use crate::config::{APP_ID, PROFILE, RESOURCES_FILE};
 use crate::modals::about::AboutDialog;
-use crate::network::pocket;
-use crate::persistence::{clipboard, token};
+use crate::modals::login::{LoginDialog, LoginOutput};
+use crate::network::instapaper;
+use crate::persistence::token::{self, TokenPair};
 use article_scraper::{FtrConfigEntry, FullTextParser, Readability};
 use reqwest::Client;
 use url::Url;
 
 pub(super) struct App {
     loading: bool,
-    auth_code: String,
-    access_token: String,
+    tokens: Option<TokenPair>,
     username: String,
     articles: FactoryVecDeque<Article>,
     article_html: Option<String>,
     article_uri: Option<String>,
     article_item_id: Option<String>,
     toaster: Toaster,
+    login_dialog: Option<Controller<LoginDialog>>,
 }
 
 #[derive(Debug)]
 pub(super) enum AppMsg {
     Quit,
     StartLogin,
-    Open(String),
+    LoginCompleted(TokenPair, String),
+    LoginCancelled,
+    Logout,
     ArticleSelected(String, String),
     RefreshArticles,
     ArchiveArticle,
@@ -53,8 +55,6 @@ pub(super) enum AppMsg {
 pub(super) enum CommandMsg {
     RefreshedArticles(Vec<Article>),
     ScrapedArticle(String),
-    SetToken((String, String)),
-    SetAuthCode(String),
     ArticleArchived(String),
     OpenUrl(String),
 }
@@ -63,6 +63,7 @@ relm4::new_action_group!(pub(super) WindowActionGroup, "win");
 relm4::new_stateless_action!(PreferencesAction, WindowActionGroup, "preferences");
 relm4::new_stateless_action!(pub(super) ShortcutsAction, WindowActionGroup, "show-help-overlay");
 relm4::new_stateless_action!(AboutAction, WindowActionGroup, "about");
+relm4::new_stateless_action!(LogoutAction, WindowActionGroup, "logout");
 
 #[relm4::component(pub)]
 impl Component for App {
@@ -78,6 +79,7 @@ impl Component for App {
                 "_Preferences" => PreferencesAction,
                 "_Keyboard" => ShortcutsAction,
                 "_About Cauldron" => AboutAction,
+                "_Logout" => LogoutAction,
             }
         }
     }
@@ -132,26 +134,29 @@ impl Component for App {
                         },
 
                         #[wrap(Some)]
-                        set_content = &gtk::Button::with_label("Login") {
-                            #[watch]
-                            set_visible: model.access_token.is_empty(),
-                            connect_clicked => AppMsg::StartLogin,
-                        },
+                        set_content = &gtk::Box {
+                            set_orientation: gtk::Orientation::Vertical,
 
-                        #[wrap(Some)]
-                        set_content = &gtk::ScrolledWindow {
-                            add_css_class: "navigation-sidebar",
-                            set_propagate_natural_height: true,
+                            gtk::Button::with_label("Login") {
+                                #[watch]
+                                set_visible: model.tokens.is_none(),
+                                connect_clicked => AppMsg::StartLogin,
+                            },
 
-                            gtk::Box {
-                                set_orientation: gtk::Orientation::Vertical,
+                            gtk::ScrolledWindow {
+                                #[watch]
+                                set_visible: model.tokens.is_some(),
+                                add_css_class: "navigation-sidebar",
+                                set_propagate_natural_height: true,
 
-                                #[local_ref]
-                                articles_list_box -> gtk::ListBox {
-                                    #[watch]
-                                    set_visible: !model.access_token.is_empty(),
-                                    set_selection_mode: gtk::SelectionMode::Single,
-                                    add_css_class: "navigation-sidebar",
+                                gtk::Box {
+                                    set_orientation: gtk::Orientation::Vertical,
+
+                                    #[local_ref]
+                                    articles_list_box -> gtk::ListBox {
+                                        set_selection_mode: gtk::SelectionMode::Single,
+                                        add_css_class: "navigation-sidebar",
+                                    }
                                 }
                             }
                         }
@@ -251,20 +256,9 @@ impl Component for App {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let open_sender = sender.clone();
-        main_application().connect_open(move |_, files, _| {
-            if let Some(uri) = files.first().map(|f| f.uri()) {
-                open_sender.input(AppMsg::Open(uri.to_string()));
-            } else {
-                println!("No URI to open");
-            }
-        });
-
-        let auth_code = String::new();
-
-        let access_token = match token::read_token() {
-            Ok(token) => token,
-            Err(_) => String::new(),
+        let tokens = match token::read_tokens() {
+            Ok(t) => Some(t),
+            Err(_) => None,
         };
 
         let username = String::new();
@@ -277,8 +271,7 @@ impl Component for App {
             });
 
         let model = Self {
-            auth_code,
-            access_token,
+            tokens,
             username,
             articles,
             article_html: None,
@@ -286,6 +279,7 @@ impl Component for App {
             article_item_id: None,
             loading: false,
             toaster: Toaster::default(),
+            login_dialog: None,
         };
 
         let toast_overlay = model.toaster.overlay_widget();
@@ -309,8 +303,16 @@ impl Component for App {
             })
         };
 
+        let logout_action = {
+            let sender_clone = sender.clone();
+            RelmAction::<LogoutAction>::new_stateless(move |_| {
+                sender_clone.input(AppMsg::Logout);
+            })
+        };
+
         actions.add_action(shortcuts_action);
         actions.add_action(about_action);
+        actions.add_action(logout_action);
         actions.register_for_widget(&widgets.main_window);
 
         widgets.load_window_size();
@@ -332,57 +334,73 @@ impl Component for App {
                 });
             }
             AppMsg::StartLogin => {
-                sender.oneshot_command(async {
-                    let client = pocket::client();
-                    let code_response = pocket::initiate_login(&client).await;
-                    CommandMsg::SetAuthCode(code_response.code)
-                });
+                let login_dialog =
+                    LoginDialog::builder()
+                        .launch(())
+                        .forward(sender.input_sender(), |output| match output {
+                            LoginOutput::LoggedIn(tokens, username) => {
+                                AppMsg::LoginCompleted(tokens, username)
+                            }
+                            LoginOutput::Cancelled => AppMsg::LoginCancelled,
+                        });
+
+                self.login_dialog = Some(login_dialog);
             }
-            AppMsg::Open(_uri) => {
-                let auth_code = self.auth_code.clone();
-
-                sender.oneshot_command(async move {
-                    let client = pocket::client();
-
-                    let authorization_response = pocket::authorize(&client, &auth_code).await;
-
-                    CommandMsg::SetToken((
-                        authorization_response.username,
-                        authorization_response.access_token,
-                    ))
-                });
+            AppMsg::LoginCompleted(tokens, username) => {
+                let _ = token::save_tokens(&tokens);
+                self.tokens = Some(tokens);
+                self.username = username;
+                self.login_dialog = None;
+                sender.input(AppMsg::RefreshArticles);
+            }
+            AppMsg::LoginCancelled => {
+                self.login_dialog = None;
+            }
+            AppMsg::Logout => {
+                println!("porco dio");
+                let _ = token::clear_tokens();
+                self.tokens = None;
+                self.username = String::new();
+                self.articles.guard().clear();
+                self.article_html = None;
+                self.article_uri = None;
+                self.article_item_id = None;
             }
             AppMsg::RefreshArticles => {
-                let access_token = self.access_token.clone();
-                self.loading = true;
+                if let Some(tokens) = self.tokens.clone() {
+                    self.loading = true;
 
-                sender.oneshot_command(async move {
-                    let client = pocket::client();
-                    let entries = pocket::get_entries(&client, &access_token).await;
+                    sender.oneshot_command(async move {
+                        let client = instapaper::client();
+                        let entries = instapaper::get_bookmarks(&client, &tokens).await;
 
-                    let parsed_entries = crate::article::parse_json_response(entries);
-
-                    CommandMsg::RefreshedArticles(parsed_entries)
-                });
+                        match entries {
+                            Ok(bookmarks) => {
+                                let parsed_entries =
+                                    crate::article::parse_instapaper_response(bookmarks);
+                                CommandMsg::RefreshedArticles(parsed_entries)
+                            }
+                            Err(_) => CommandMsg::RefreshedArticles(vec![]),
+                        }
+                    });
+                }
             }
             AppMsg::ArchiveArticle => {
-                let access_token = self.access_token.clone();
+                if let (Some(tokens), Some(item_id)) =
+                    (self.tokens.clone(), self.article_item_id.clone())
+                {
+                    sender.oneshot_command(async move {
+                        let client = instapaper::client();
+                        let bookmark_id: i64 = item_id.parse().unwrap_or(0);
+                        let _ = instapaper::archive_bookmark(&client, &tokens, bookmark_id).await;
 
-                match self.article_item_id.clone() {
-                    Some(item_id) => {
-                        sender.oneshot_command(async move {
-                            let client = pocket::client();
-                            let _ = pocket::archive(&client, &access_token, &item_id).await;
-
-                            CommandMsg::ArticleArchived(item_id)
-                        });
-                    }
-                    None => {}
+                        CommandMsg::ArticleArchived(item_id)
+                    });
                 }
             }
             AppMsg::CopyArticleUrl => match self.article_uri.clone() {
                 Some(uri) => {
-                    let _ = clipboard::copy(&uri);
+                    let _ = crate::persistence::clipboard::copy(&uri);
                     let toast = adw::Toast::builder()
                         .title("URL copied to clipboard.")
                         .timeout(3000)
@@ -424,19 +442,6 @@ impl Component for App {
                 );
             }
             CommandMsg::ScrapedArticle(html) => self.article_html = Some(html),
-            CommandMsg::SetAuthCode(auth_code) => {
-                let pocket_uri = pocket::encode_pocket_uri(&auth_code);
-
-                open::that(pocket_uri).expect("Could not open the browser");
-                auth_code.clone_into(&mut self.auth_code)
-            }
-            CommandMsg::SetToken((username, access_token)) => {
-                self.username = username;
-                self.access_token = access_token;
-
-                let _ = token::save_token(&self.access_token);
-                sender.input(AppMsg::RefreshArticles);
-            }
             CommandMsg::ArticleArchived(_item_id) => {
                 self.article_html = None;
                 self.article_uri = None;

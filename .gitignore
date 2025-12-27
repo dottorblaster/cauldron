@@ -11,3 +11,5 @@
 /vendor
 /.vscode
 .flatpak-builder/
+secrets.env
+build-config.ini

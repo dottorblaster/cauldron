@@ -10,7 +10,7 @@ Cauldron is a GNOME desktop application written in Rust that allows you to read 
 
 ## Features
 
-- Pocket Integration: Cauldron seamlessly integrates with your Pocket account, allowing you to access and read the articles you have saved.
+- Instapaper Integration: Cauldron seamlessly integrates with your Instapaper account, allowing you to access and read the articles you have saved.
 - GNOME-Friendly UI: The application's user interface is designed to blend in with the GNOME desktop environment, providing a native and intuitive experience.
 - Responsive Design: Cauldron's layout adapts to different screen sizes and resolutions, ensuring a great experience on a variety of devices.
 -Offline Reading (coming soon): You can download articles for offline viewing, making it easy to read your saved content even when you're not connected to the internet.

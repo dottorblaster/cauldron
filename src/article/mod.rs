@@ -86,6 +86,8 @@ pub fn parse_instapaper_response(bookmarks: Vec<InstapaperBookmark>) -> Vec<Arti
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
     use flume;
     use relm4::factory::FactoryVecDeque;
@@ -93,7 +95,9 @@ mod tests {
     #[test]
     fn test_parse_instapaper_response() {
         let bookmarks = vec![InstapaperBookmark {
-            type_field: "bookmark".to_owned(),
+            description: "A sample description".to_owned(),
+            starred: "false".to_owned(),
+            extra: HashMap::new(),
             bookmark_id: 12345,
             title: "Test Article Title".to_owned(),
             url: "https://example.com/article".to_owned(),
@@ -111,7 +115,9 @@ mod tests {
     #[test]
     fn test_parse_instapaper_response_empty_title() {
         let bookmarks = vec![InstapaperBookmark {
-            type_field: "bookmark".to_owned(),
+            description: "A sample description".to_owned(),
+            starred: "false".to_owned(),
+            extra: HashMap::new(),
             bookmark_id: 12345,
             title: "".to_owned(),
             url: "https://example.com/article".to_owned(),

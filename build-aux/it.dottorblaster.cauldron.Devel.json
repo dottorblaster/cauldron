@@ -41,7 +41,9 @@
             "buildsystem": "meson",
             "run-tests": true,
             "config-opts": [
-                "-Dprofile=development"
+                "-Dprofile=development",
+                "-Dconsumer_key=c479361eab394b71ab5229dceade8ec1",
+                "-Dconsumer_secret=387d72cd24aa4cd585c52158c835cbb7"
             ],
             "sources": [
                 {

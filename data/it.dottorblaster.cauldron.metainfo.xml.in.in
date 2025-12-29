@@ -27,6 +27,16 @@
   <url type="translate">https://github.com/dottorblaster/cauldron/tree/master/po</url>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.6.0" date="2025-12-29">
+      <description translatable="no">
+        <p>This release includes major changes and improvements:</p>
+        <ul>
+          <li>Migration from Pocket to Instapaper as the backend service</li>
+          <li>Upgraded to GNOME 49 runtime and LLVM 20</li>
+          <li>Updated multiple dependencies (serde, serde_json, url, gettext-rs, reqwest) for improved security and performance</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.5.0" date="2025-03-16">
       <description translatable="no">
         <p>This release includes the possibility to copy the articles' URL to the clipboard and opening them in the browser. Enjoy!</p>

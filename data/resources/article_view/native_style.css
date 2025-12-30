@@ -1,0 +1,126 @@
+.article-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    font-family: serif;
+    line-height: 1.2;
+}
+
+.article-h1 {
+    font-size: 2rem;
+    font-weight: 400;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    font-family: serif;
+}
+
+.article-h2 {
+    font-size: 1.5rem;
+    font-weight: 400;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    font-family: serif;
+}
+
+.article-h3 {
+    font-size: 1.25rem;
+    font-weight: 400;
+    margin-bottom: 0.5rem;
+    font-family: serif;
+}
+
+.article-h4 {
+    font-size: 1.25rem;
+    font-weight: 400;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    font-family: serif;
+}
+
+.article-h5 {
+    font-size: 1.2rem;
+    font-weight: 400;
+    margin-bottom: 0.25rem;
+    font-family: serif;
+}
+
+.article-h6 {
+    font-size: 1rem;
+    font-weight: 400;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    font-family: serif;
+}
+
+.article-text {
+    margin-bottom: 1rem;
+    color: #1d1f1c;
+    font-family: serif;
+}
+
+.article-link {
+    color: #3584e4;
+}
+
+.article-code-block {
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 0.5rem 1rem;
+    margin-bottom: 1rem;
+    font-family: monospace;
+    border-radius: 4px;
+}
+
+.article-code-block text {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.article-blockquote {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    margin-left: 3px;
+    padding-left: 10px;
+    border-left: 3px solid #ccc;
+}
+
+.article-image {
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+}
+
+.article-image-picture {
+    max-width: 2048px;
+    width: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+    .article-title {
+        color: rgba(255, 255, 255, 0.95);
+    }
+
+    .article-text {
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .article-h1,
+    .article-h2,
+    .article-h3,
+    .article-h4,
+    .article-h5,
+    .article-h6 {
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .article-code-block {
+        background-color: #121212;
+        color: white;
+    }
+
+    .article-code-block text {
+        background-color: #121212;
+        color: white;
+    }
+
+    .article-blockquote {
+        border-left-color: rgba(255, 255, 255, 0.3);
+    }
+}

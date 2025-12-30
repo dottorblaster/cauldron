@@ -1,10 +1,11 @@
-use gtk::prelude::{BoxExt, ButtonExt, EditableExt, OrientableExt, WidgetExt};
+use gtk::prelude::{
+    BoxExt, ButtonExt, EditableExt, GtkApplicationExt, ListBoxRowExt, OrientableExt, WidgetExt,
+};
 use relm4::{
     adw,
     adw::prelude::{AdwDialogExt, PreferencesGroupExt, PreferencesRowExt},
     gtk, Component, ComponentParts, ComponentSender, RelmWidgetExt,
 };
-use webkit6::prelude::{GtkApplicationExt, ListBoxRowExt};
 
 use crate::network::instapaper;
 use crate::persistence::token::TokenPair;

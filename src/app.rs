@@ -18,6 +18,7 @@ use crate::config::{APP_ID, PROFILE};
 use crate::modals::about::AboutDialog;
 use crate::modals::login::{LoginDialog, LoginOutput};
 use crate::network::instapaper;
+use crate::persistence::articles::{self, PersistedArticle};
 use crate::persistence::token::{self, TokenPair};
 use article_scraper::{FtrConfigEntry, FullTextParser, Readability};
 use reqwest::Client;
@@ -228,13 +229,23 @@ impl Component for App {
         };
 
         let username = String::new();
-        let articles = FactoryVecDeque::builder()
+        let mut articles = FactoryVecDeque::builder()
             .launch(gtk::ListBox::default())
             .forward(sender.input_sender(), |output| match output {
                 ArticleOutput::ArticleSelected(title, uri, item_id) => {
                     AppMsg::ArticleSelected(title, uri, item_id)
                 }
             });
+
+        let cached_articles = articles::read_articles().unwrap_or_default();
+
+        cached_articles.iter().for_each(|article| {
+            articles.guard().push_back((
+                article.title.clone(),
+                article.uri.clone(),
+                article.item_id.clone(),
+            ));
+        });
 
         let article_renderer = ArticleRenderer::builder().launch(()).detach();
 
@@ -335,6 +346,7 @@ impl Component for App {
             AppMsg::Logout => {
                 println!("porco dio");
                 let _ = token::clear_tokens();
+                let _ = articles::clear_articles();
                 self.tokens = None;
                 self.username = String::new();
                 self.articles.guard().clear();
@@ -416,6 +428,19 @@ impl Component for App {
                         ));
                     },
                 );
+
+                let persisted: Vec<PersistedArticle> = entries
+                    .iter()
+                    .map(|a| PersistedArticle {
+                        title: a.title.clone(),
+                        uri: a.uri.clone(),
+                        item_id: a.item_id.clone(),
+                    })
+                    .collect();
+
+                if let Err(e) = articles::save_articles(&persisted) {
+                    eprintln!("Failed to save articles cache: {}", e);
+                }
             }
             CommandMsg::ScrapedArticle(html) => {
                 self.article_html = Some(html.clone());
@@ -436,6 +461,17 @@ impl Component for App {
     }
 
     fn shutdown(&mut self, widgets: &mut Self::Widgets, _output: relm4::Sender<Self::Output>) {
+        let current_articles: Vec<PersistedArticle> = self
+            .articles
+            .iter()
+            .map(|a| PersistedArticle {
+                title: a.title.clone(),
+                uri: a.uri.clone(),
+                item_id: a.item_id.clone(),
+            })
+            .collect();
+        let _ = articles::save_articles(&current_articles);
+
         widgets.save_window_size().unwrap();
     }
 }

@@ -349,7 +349,8 @@ impl ArticleRenderer {
                                 picture.set_margin_bottom(20);
                                 picture.add_css_class("article-image-picture");
 
-                                let natural_width = 600.min(texture.width());
+                                let natural_width = 2048
+                                    .min(texture.width().min(container_clone2.allocated_width()));
                                 let aspect_ratio = texture.height() as f64 / texture.width() as f64;
                                 let natural_height = (natural_width as f64 * aspect_ratio) as i32;
                                 picture.set_size_request(-1, natural_height);

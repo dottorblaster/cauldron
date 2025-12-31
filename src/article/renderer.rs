@@ -6,6 +6,7 @@ use scraper::{ElementRef, Html, Node, Selector};
 pub struct ArticleRenderer {
     content_box: gtk::Box,
     title_label: gtk::Label,
+    vadjustment: gtk::Adjustment,
 }
 
 #[derive(Debug)]
@@ -64,9 +65,12 @@ impl SimpleComponent for ArticleRenderer {
 
         Self::load_css();
 
+        let vadjustment = root.vadjustment();
+
         let model = Self {
             content_box,
             title_label,
+            vadjustment,
         };
         let widgets = ArticleRendererWidgets {};
 
@@ -81,6 +85,7 @@ impl SimpleComponent for ArticleRenderer {
             }
             ArticleRendererInput::SetContent(html) => {
                 self.render_html(&html);
+                self.vadjustment.set_value(0.0);
             }
         }
     }

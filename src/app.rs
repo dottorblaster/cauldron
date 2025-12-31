@@ -3,7 +3,8 @@ use relm4::{
     actions::{RelmAction, RelmActionGroup},
     adw,
     factory::FactoryVecDeque,
-    gtk, main_application, Component, ComponentParts, ComponentSender, Controller,
+    gtk, main_application, Component, ComponentController, ComponentParts, ComponentSender,
+    Controller,
 };
 
 use gtk::prelude::{
@@ -11,12 +12,9 @@ use gtk::prelude::{
     WidgetExt,
 };
 use gtk::{gio, glib};
-use webkit6::{
-    prelude::WebViewExt, UserContentInjectedFrames, UserStyleLevel, UserStyleSheet, WebView,
-};
 
-use crate::article::{Article, ArticleOutput};
-use crate::config::{APP_ID, PROFILE, RESOURCES_FILE};
+use crate::article::{Article, ArticleOutput, ArticleRenderer, ArticleRendererInput};
+use crate::config::{APP_ID, PROFILE};
 use crate::modals::about::AboutDialog;
 use crate::modals::login::{LoginDialog, LoginOutput};
 use crate::network::instapaper;
@@ -31,10 +29,12 @@ pub(super) struct App {
     username: String,
     articles: FactoryVecDeque<Article>,
     article_html: Option<String>,
+    article_title: Option<String>,
     article_uri: Option<String>,
     article_item_id: Option<String>,
     toaster: Toaster,
     login_dialog: Option<Controller<LoginDialog>>,
+    article_renderer: Controller<ArticleRenderer>,
 }
 
 #[derive(Debug)]
@@ -44,7 +44,7 @@ pub(super) enum AppMsg {
     LoginCompleted(TokenPair, String),
     LoginCancelled,
     Logout,
-    ArticleSelected(String, String),
+    ArticleSelected(String, String, String),
     RefreshArticles,
     ArchiveArticle,
     CopyArticleUrl,
@@ -204,44 +204,10 @@ impl Component for App {
                                     set_hexpand: true,
                                     set_text: "Select an article",
                                 },
-                                gtk::ScrolledWindow {
+                                #[local_ref]
+                                article_renderer_widget -> gtk::ScrolledWindow {
                                     #[watch]
                                     set_visible: model.article_html.is_some(),
-                                    set_propagate_natural_height: true,
-                                    set_hexpand: true,
-
-                                    WebView {
-                                        set_widget_name: "browser",
-                                        connect_resource_load_started: |webview, _, _| {
-                                            let res = gio::Resource::load(RESOURCES_FILE).expect("Could not load gresource file");
-                                            gio::resources_register(&res);
-
-                                            let data = res
-                                                .lookup_data(
-                                                    "/it/dottorblaster/cauldron/article_view/style.css",
-                                                    gio::ResourceLookupFlags::NONE,
-                                                )
-                                                .unwrap();
-                                            let css_string = &glib::GString::from_utf8_checked(data.to_vec()).unwrap();
-
-                                            let user_style_sheet = UserStyleSheet::new(
-                                                css_string,
-                                                UserContentInjectedFrames::TopFrame,
-                                                UserStyleLevel::User,
-                                                &[],
-                                                &[],
-                                            );
-
-                                            match webview.user_content_manager() {
-                                                Some(content_manager) => {
-                                                    content_manager.add_style_sheet(&user_style_sheet);
-                                                },
-                                                None => {}
-                                            }
-                                        },
-                                        #[watch]
-                                        load_html: (&model.article_html.clone().unwrap_or_default(), Some("https://dottorblaster.it"))
-                                    },
                                 },
                             }
                         },
@@ -265,26 +231,32 @@ impl Component for App {
         let articles = FactoryVecDeque::builder()
             .launch(gtk::ListBox::default())
             .forward(sender.input_sender(), |output| match output {
-                ArticleOutput::ArticleSelected(uri, item_id) => {
-                    AppMsg::ArticleSelected(uri, item_id)
+                ArticleOutput::ArticleSelected(title, uri, item_id) => {
+                    AppMsg::ArticleSelected(title, uri, item_id)
                 }
             });
+
+        let article_renderer = ArticleRenderer::builder().launch(()).detach();
 
         let model = Self {
             tokens,
             username,
             articles,
             article_html: None,
+            article_title: None,
             article_uri: None,
             article_item_id: None,
             loading: false,
             toaster: Toaster::default(),
             login_dialog: None,
+            article_renderer,
         };
 
         let toast_overlay = model.toaster.overlay_widget();
 
         let articles_list_box = model.articles.widget();
+
+        let article_renderer_widget = model.article_renderer.widget();
 
         let widgets = view_output!();
 
@@ -323,9 +295,13 @@ impl Component for App {
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>, _: &Self::Root) {
         match message {
             AppMsg::Quit => main_application().quit(),
-            AppMsg::ArticleSelected(uri, item_id) => {
+            AppMsg::ArticleSelected(title, uri, item_id) => {
+                self.article_title = Some(title.clone());
                 self.article_uri = Some(uri.clone());
                 self.article_item_id = Some(item_id);
+
+                self.article_renderer
+                    .emit(ArticleRendererInput::SetTitle(title));
 
                 sender.oneshot_command(async move {
                     let article = get_html(Some(uri)).await;
@@ -441,9 +417,14 @@ impl Component for App {
                     },
                 );
             }
-            CommandMsg::ScrapedArticle(html) => self.article_html = Some(html),
+            CommandMsg::ScrapedArticle(html) => {
+                self.article_html = Some(html.clone());
+                self.article_renderer
+                    .emit(ArticleRendererInput::SetContent(html));
+            }
             CommandMsg::ArticleArchived(_item_id) => {
                 self.article_html = None;
+                self.article_title = None;
                 self.article_uri = None;
                 self.article_item_id = None;
                 sender.input(AppMsg::RefreshArticles);

@@ -1,8 +1,12 @@
+pub mod renderer;
+
 use relm4::adw::{prelude::ActionRowExt, ActionRow};
 use relm4::factory::{DynamicIndex, FactoryComponent, FactorySender};
 use relm4::gtk;
 
 use crate::network::instapaper::InstapaperBookmark;
+
+pub use renderer::{ArticleRenderer, ArticleRendererInput};
 
 #[derive(Debug)]
 pub struct Article {
@@ -13,7 +17,7 @@ pub struct Article {
 
 #[derive(Debug)]
 pub enum ArticleOutput {
-    ArticleSelected(String, String),
+    ArticleSelected(String, String, String),
 }
 
 #[derive(Debug)]
@@ -54,6 +58,7 @@ impl FactoryComponent for Article {
             ArticleInput::ArticleSelected => {
                 sender
                     .output(ArticleOutput::ArticleSelected(
+                        self.title.clone(),
                         self.uri.clone(),
                         self.item_id.clone(),
                     ))

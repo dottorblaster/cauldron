@@ -27,6 +27,17 @@
   <url type="translate">https://github.com/dottorblaster/cauldron/tree/master/po</url>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.7.0" date="2026-01-01">
+      <description translatable="no">
+        <p>This release includes new features and improvements:</p>
+        <ul>
+          <li>Native article view for reading content directly in the app</li>
+          <li>Articles now persist across app restarts</li>
+          <li>Automatically scroll to top when rendering a new article</li>
+          <li>Updated dependencies (open, tracing, tracing-subscriber) for improved performance</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.6.0" date="2025-12-29">
       <description translatable="no">
         <p>This release includes major changes and improvements:</p>

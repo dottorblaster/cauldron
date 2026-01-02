@@ -254,6 +254,7 @@ version = "0.7.1"
 dependencies = [
  "anyhow",
  "article_scraper",
+ "chrono",
  "flume",
  "gettext-rs",
  "html-escape",

@@ -9,6 +9,15 @@ use crate::network::instapaper::InstapaperBookmark;
 
 pub use renderer::{ArticleRenderer, ArticleRendererInput};
 
+#[derive(Debug, Clone)]
+pub struct ArticleInit {
+    pub title: String,
+    pub uri: String,
+    pub item_id: String,
+    pub description: String,
+    pub time: f64,
+}
+
 #[derive(Debug)]
 pub struct Article {
     pub title: String,
@@ -80,7 +89,7 @@ pub enum ArticleInput {
 
 #[relm4::factory(pub)]
 impl FactoryComponent for Article {
-    type Init = (String, String, String, String, f64);
+    type Init = ArticleInit;
     type Input = ArticleInput;
     type Output = ArticleOutput;
     type CommandOutput = ();
@@ -115,13 +124,12 @@ impl FactoryComponent for Article {
     }
 
     fn init_model(init: Self::Init, _index: &DynamicIndex, _sender: FactorySender<Self>) -> Self {
-        let (title, uri, item_id, description, time) = init;
         Self {
-            title,
-            uri,
-            item_id,
-            description,
-            time,
+            title: init.title,
+            uri: init.uri,
+            item_id: init.item_id,
+            description: init.description,
+            time: init.time,
         }
     }
 
@@ -221,12 +229,12 @@ mod tests {
         let mut articles: FactoryVecDeque<Article> = FactoryVecDeque::builder()
             .launch(gtk::ListBox::default())
             .forward(&test_sender, |_| {});
-        articles.guard().push_back((
-            "".to_owned(),
-            "".to_owned(),
-            "".to_owned(),
-            "".to_owned(),
-            0.0,
-        ));
+        articles.guard().push_back(ArticleInit {
+            title: "".to_owned(),
+            uri: "".to_owned(),
+            item_id: "".to_owned(),
+            description: "".to_owned(),
+            time: 0.0,
+        });
     }
 }

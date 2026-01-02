@@ -13,7 +13,7 @@ use gtk::prelude::{
 };
 use gtk::{gio, glib};
 
-use crate::article::{Article, ArticleOutput, ArticleRenderer, ArticleRendererInput};
+use crate::article::{Article, ArticleInit, ArticleOutput, ArticleRenderer, ArticleRendererInput};
 use crate::config::{APP_ID, PROFILE};
 use crate::modals::about::AboutDialog;
 use crate::modals::add_bookmark::{AddBookmarkDialog, AddBookmarkOutput};
@@ -257,13 +257,13 @@ impl Component for App {
         let cached_articles = articles::read_articles().unwrap_or_default();
 
         cached_articles.iter().for_each(|article| {
-            articles.guard().push_back((
-                article.title.clone(),
-                article.uri.clone(),
-                article.item_id.clone(),
-                article.description.clone(),
-                article.time,
-            ));
+            articles.guard().push_back(ArticleInit {
+                title: article.title.clone(),
+                uri: article.uri.clone(),
+                item_id: article.item_id.clone(),
+                description: article.description.clone(),
+                time: article.time,
+            });
         });
 
         let article_renderer = ArticleRenderer::builder().launch(()).detach();
@@ -479,13 +479,13 @@ impl Component for App {
                          description,
                          time,
                      }| {
-                        self.articles.guard().push_back((
-                            title.to_owned(),
-                            uri.to_owned(),
-                            item_id.to_owned(),
-                            description.to_owned(),
-                            *time,
-                        ));
+                        self.articles.guard().push_back(ArticleInit {
+                            title: title.to_owned(),
+                            uri: uri.to_owned(),
+                            item_id: item_id.to_owned(),
+                            description: description.to_owned(),
+                            time: *time,
+                        });
                     },
                 );
 

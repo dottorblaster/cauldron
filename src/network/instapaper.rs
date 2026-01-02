@@ -39,7 +39,7 @@ pub struct InstapaperBookmark {
     #[serde(default)]
     pub progress: f64,
     #[serde(default)]
-    pub time: i64,
+    pub time: f64,
     #[serde(default)]
     pub hash: String,
     #[serde(default)]
@@ -94,6 +94,11 @@ struct BookmarksListRequest {
 #[derive(oauth1_request::Request)]
 struct BookmarkArchiveRequest {
     bookmark_id: i64,
+}
+
+#[derive(oauth1_request::Request)]
+struct BookmarkAddRequest<'a> {
+    url: &'a str,
 }
 
 pub fn client() -> Client {
@@ -329,4 +334,71 @@ pub async fn archive_bookmark(
     }
 
     Ok(())
+}
+
+pub async fn add_bookmark(
+    client: &Client,
+    tokens: &TokenPair,
+    url: &str,
+) -> Result<InstapaperBookmark, InstapaperError> {
+    let api_url = format!("{}/api/1/bookmarks/add", BASE_URL);
+
+    let request = BookmarkAddRequest { url };
+    let token = oauth1_request::Token::from_parts(
+        CONSUMER_KEY,
+        CONSUMER_SECRET,
+        &tokens.oauth_token,
+        &tokens.oauth_token_secret,
+    );
+
+    let auth_header =
+        oauth1_request::post(&api_url, &request, &token, oauth1_request::HmacSha1::new());
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        AUTHORIZATION,
+        HeaderValue::from_str(&auth_header).expect("Invalid auth header"),
+    );
+    headers.insert(
+        CONTENT_TYPE,
+        HeaderValue::from_static("application/x-www-form-urlencoded"),
+    );
+
+    let body = format!("url={}", urlencoding::encode(url));
+
+    let response = client
+        .post(&api_url)
+        .headers(headers)
+        .body(body)
+        .send()
+        .await?;
+
+    if response.status() == 401 {
+        return Err(InstapaperError::InvalidCredentials);
+    }
+
+    // Instapaper returns an array with the newly added bookmark
+    let items: Vec<InstapaperResponse> = response
+        .json()
+        .await
+        .map_err(|e| InstapaperError::ParseError(format!("Failed to parse response: {}", e)))?;
+
+    for item in items {
+        if let InstapaperResponse::Bookmark(bookmark) = item {
+            return Ok(bookmark);
+        }
+        if let InstapaperResponse::Error(err) = item {
+            if err.error_code == 1040 {
+                return Err(InstapaperError::RateLimited);
+            }
+            return Err(InstapaperError::ParseError(format!(
+                "API error {}: {}",
+                err.error_code, err.message
+            )));
+        }
+    }
+
+    Err(InstapaperError::ParseError(
+        "No bookmark in response".to_string(),
+    ))
 }

@@ -16,6 +16,7 @@ use gtk::{gio, glib};
 use crate::article::{Article, ArticleOutput, ArticleRenderer, ArticleRendererInput};
 use crate::config::{APP_ID, PROFILE};
 use crate::modals::about::AboutDialog;
+use crate::modals::add_bookmark::{AddBookmarkDialog, AddBookmarkOutput};
 use crate::modals::login::{LoginDialog, LoginOutput};
 use crate::network::instapaper;
 use crate::persistence::articles::{self, PersistedArticle};
@@ -35,6 +36,7 @@ pub(super) struct App {
     article_item_id: Option<String>,
     toaster: Toaster,
     login_dialog: Option<Controller<LoginDialog>>,
+    add_bookmark_dialog: Option<Controller<AddBookmarkDialog>>,
     article_renderer: Controller<ArticleRenderer>,
 }
 
@@ -50,6 +52,9 @@ pub(super) enum AppMsg {
     ArchiveArticle,
     CopyArticleUrl,
     OpenArticle,
+    ShowAddBookmarkDialog,
+    AddBookmarkCompleted(String),
+    AddBookmarkCancelled,
 }
 
 #[derive(Debug)]
@@ -58,6 +63,8 @@ pub(super) enum CommandMsg {
     ScrapedArticle(String),
     ArticleArchived(String),
     OpenUrl(String),
+    BookmarkAdded,
+    Error(String),
 }
 
 relm4::new_action_group!(pub(super) WindowActionGroup, "win");
@@ -128,9 +135,19 @@ impl Component for App {
                                 }
                             },
 
-                            pack_end = &gtk::MenuButton {
-                                set_icon_name: "open-menu-symbolic",
-                                set_menu_model: Some(&primary_menu),
+                            pack_end = &gtk::Box {
+                                gtk::Button {
+                                    #[watch]
+                                    set_visible: model.tokens.is_some(),
+                                    set_icon_name: "list-add-symbolic",
+                                    set_tooltip_text: Some("Add bookmark"),
+                                    connect_clicked => AppMsg::ShowAddBookmarkDialog,
+                                },
+
+                                gtk::MenuButton {
+                                    set_icon_name: "open-menu-symbolic",
+                                    set_menu_model: Some(&primary_menu),
+                                },
                             },
                         },
 
@@ -260,6 +277,7 @@ impl Component for App {
             loading: false,
             toaster: Toaster::default(),
             login_dialog: None,
+            add_bookmark_dialog: None,
             article_renderer,
         };
 
@@ -402,6 +420,35 @@ impl Component for App {
                     sender.oneshot_command(async move { CommandMsg::OpenUrl(uri.to_owned()) });
                 }
             }
+            AppMsg::ShowAddBookmarkDialog => {
+                if let Some(tokens) = self.tokens.clone() {
+                    let add_bookmark_dialog = AddBookmarkDialog::builder().launch(tokens).forward(
+                        sender.input_sender(),
+                        |output| match output {
+                            AddBookmarkOutput::BookmarkAdded(url) => {
+                                AppMsg::AddBookmarkCompleted(url)
+                            }
+                            AddBookmarkOutput::Cancelled => AppMsg::AddBookmarkCancelled,
+                        },
+                    );
+                    self.add_bookmark_dialog = Some(add_bookmark_dialog);
+                }
+            }
+            AppMsg::AddBookmarkCompleted(url) => {
+                if let Some(tokens) = self.tokens.clone() {
+                    sender.oneshot_command(async move {
+                        let client = instapaper::client();
+                        match instapaper::add_bookmark(&client, &tokens, &url).await {
+                            Ok(_) => CommandMsg::BookmarkAdded,
+                            Err(e) => CommandMsg::Error(format!("Failed to add bookmark: {:?}", e)),
+                        }
+                    });
+                }
+                self.add_bookmark_dialog = None;
+            }
+            AppMsg::AddBookmarkCancelled => {
+                self.add_bookmark_dialog = None;
+            }
         }
     }
 
@@ -456,6 +503,18 @@ impl Component for App {
             }
             CommandMsg::OpenUrl(url) => {
                 open::that(url).expect("Could not open the browser");
+            }
+            CommandMsg::BookmarkAdded => {
+                let toast = adw::Toast::builder()
+                    .title("Bookmark added successfully")
+                    .timeout(3)
+                    .build();
+                self.toaster.add_toast(toast);
+                sender.input(AppMsg::RefreshArticles);
+            }
+            CommandMsg::Error(error) => {
+                let toast = adw::Toast::builder().title(&error).timeout(5).build();
+                self.toaster.add_toast(toast);
             }
         }
     }

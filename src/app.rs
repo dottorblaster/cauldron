@@ -13,7 +13,7 @@ use gtk::prelude::{
 };
 use gtk::{gio, glib};
 
-use crate::article::{Article, ArticleOutput, ArticleRenderer, ArticleRendererInput};
+use crate::article::{Article, ArticleInit, ArticleOutput, ArticleRenderer, ArticleRendererInput};
 use crate::config::{APP_ID, PROFILE};
 use crate::modals::about::AboutDialog;
 use crate::modals::add_bookmark::{AddBookmarkDialog, AddBookmarkOutput};
@@ -47,7 +47,7 @@ pub(super) enum AppMsg {
     LoginCompleted(TokenPair, String),
     LoginCancelled,
     Logout,
-    ArticleSelected(String, String, String),
+    ArticleSelected(String, String, String, String, f64),
     RefreshArticles,
     ArchiveArticle,
     CopyArticleUrl,
@@ -249,19 +249,21 @@ impl Component for App {
         let mut articles = FactoryVecDeque::builder()
             .launch(gtk::ListBox::default())
             .forward(sender.input_sender(), |output| match output {
-                ArticleOutput::ArticleSelected(title, uri, item_id) => {
-                    AppMsg::ArticleSelected(title, uri, item_id)
+                ArticleOutput::ArticleSelected(title, uri, item_id, description, time) => {
+                    AppMsg::ArticleSelected(title, uri, item_id, description, time)
                 }
             });
 
         let cached_articles = articles::read_articles().unwrap_or_default();
 
         cached_articles.iter().for_each(|article| {
-            articles.guard().push_back((
-                article.title.clone(),
-                article.uri.clone(),
-                article.item_id.clone(),
-            ));
+            articles.guard().push_back(ArticleInit {
+                title: article.title.clone(),
+                uri: article.uri.clone(),
+                item_id: article.item_id.clone(),
+                description: article.description.clone(),
+                time: article.time,
+            });
         });
 
         let article_renderer = ArticleRenderer::builder().launch(()).detach();
@@ -324,13 +326,20 @@ impl Component for App {
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>, _: &Self::Root) {
         match message {
             AppMsg::Quit => main_application().quit(),
-            AppMsg::ArticleSelected(title, uri, item_id) => {
+            AppMsg::ArticleSelected(title, uri, item_id, description, time) => {
                 self.article_title = Some(title.clone());
                 self.article_uri = Some(uri.clone());
                 self.article_item_id = Some(item_id);
 
                 self.article_renderer
                     .emit(ArticleRendererInput::SetTitle(title));
+
+                self.article_renderer
+                    .emit(ArticleRendererInput::SetMetadata {
+                        url: uri.clone(),
+                        description: description.clone(),
+                        time,
+                    });
 
                 sender.oneshot_command(async move {
                     let article = get_html(Some(uri)).await;
@@ -467,12 +476,16 @@ impl Component for App {
                          title,
                          uri,
                          item_id,
+                         description,
+                         time,
                      }| {
-                        self.articles.guard().push_back((
-                            title.to_owned(),
-                            uri.to_owned(),
-                            item_id.to_owned(),
-                        ));
+                        self.articles.guard().push_back(ArticleInit {
+                            title: title.to_owned(),
+                            uri: uri.to_owned(),
+                            item_id: item_id.to_owned(),
+                            description: description.to_owned(),
+                            time: *time,
+                        });
                     },
                 );
 
@@ -482,6 +495,8 @@ impl Component for App {
                         title: a.title.clone(),
                         uri: a.uri.clone(),
                         item_id: a.item_id.clone(),
+                        description: a.description.clone(),
+                        time: a.time,
                     })
                     .collect();
 
@@ -527,6 +542,8 @@ impl Component for App {
                 title: a.title.clone(),
                 uri: a.uri.clone(),
                 item_id: a.item_id.clone(),
+                description: a.description.clone(),
+                time: a.time,
             })
             .collect();
         let _ = articles::save_articles(&current_articles);

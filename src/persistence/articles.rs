@@ -10,6 +10,8 @@ pub struct PersistedArticle {
     pub title: String,
     pub uri: String,
     pub item_id: String,
+    pub description: String,
+    pub time: f64,
 }
 
 pub fn save_articles(articles: &[PersistedArticle]) -> Result<()> {

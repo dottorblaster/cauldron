@@ -1,9 +1,38 @@
 .article-title {
     font-size: 2.5rem;
     font-weight: 700;
-    margin-bottom: 2rem;
+    margin-bottom: 0.5rem;
     font-family: serif;
     line-height: 1.2;
+}
+
+.article-metadata {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    padding-bottom: 16px;
+}
+
+.article-domain {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #3584e4;
+}
+
+.article-date {
+    font-size: 0.95rem;
+    color: rgba(0, 0, 0, 0.6);
+}
+
+.article-metadata-separator {
+    color: rgba(0, 0, 0, 0.4);
+    margin: 0 4px;
+}
+
+.article-description {
+    font-size: 1.1rem;
+    line-height: 1.5;
+    color: rgba(0, 0, 0, 0.7);
+    font-style: italic;
+    margin-top: 8px;
 }
 
 .article-h1 {
@@ -95,6 +124,26 @@
 @media (prefers-color-scheme: dark) {
     .article-title {
         color: rgba(255, 255, 255, 0.95);
+    }
+
+    .article-metadata {
+        border-bottom-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .article-domain {
+        color: #78aeed;
+    }
+
+    .article-date {
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .article-metadata-separator {
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .article-description {
+        color: rgba(255, 255, 255, 0.7);
     }
 
     .article-text {

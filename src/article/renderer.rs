@@ -6,6 +6,7 @@ use scraper::{ElementRef, Html, Node, Selector};
 pub struct ArticleRenderer {
     content_box: gtk::Box,
     title_label: gtk::Label,
+    metadata_box: gtk::Box,
     vadjustment: gtk::Adjustment,
 }
 
@@ -13,6 +14,11 @@ pub struct ArticleRenderer {
 pub enum ArticleRendererInput {
     SetTitle(String),
     SetContent(String),
+    SetMetadata {
+        url: String,
+        description: String,
+        time: f64,
+    },
 }
 
 impl SimpleComponent for ArticleRenderer {
@@ -53,12 +59,22 @@ impl SimpleComponent for ArticleRenderer {
             .build();
         title_label.add_css_class("article-title");
 
+        let metadata_box = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(6)
+            .margin_top(8)
+            .margin_bottom(16)
+            .visible(false)
+            .build();
+        metadata_box.add_css_class("article-metadata");
+
         let content_box = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .spacing(0)
             .build();
 
         main_box.append(&title_label);
+        main_box.append(&metadata_box);
         main_box.append(&content_box);
 
         root.set_child(Some(&main_box));
@@ -70,6 +86,7 @@ impl SimpleComponent for ArticleRenderer {
         let model = Self {
             content_box,
             title_label,
+            metadata_box,
             vadjustment,
         };
         let widgets = ArticleRendererWidgets {};
@@ -86,6 +103,13 @@ impl SimpleComponent for ArticleRenderer {
             ArticleRendererInput::SetContent(html) => {
                 self.render_html(&html);
                 self.vadjustment.set_value(0.0);
+            }
+            ArticleRendererInput::SetMetadata {
+                url,
+                description,
+                time,
+            } => {
+                self.render_metadata(&url, &description, time);
             }
         }
     }
@@ -117,6 +141,108 @@ impl ArticleRenderer {
             &provider,
             gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
         );
+    }
+
+    fn render_metadata(&self, url: &str, description: &str, time: f64) {
+        // Clear existing metadata
+        while let Some(child) = self.metadata_box.first_child() {
+            self.metadata_box.remove(&child);
+        }
+
+        // Extract domain from URL
+        let domain = Self::extract_domain(url);
+
+        // Create metadata row with domain and date
+        let metadata_row = gtk::Box::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .spacing(8)
+            .build();
+
+        if let Some(domain_text) = domain {
+            let domain_label = gtk::Label::builder()
+                .label(&domain_text)
+                .xalign(0.0)
+                .selectable(true)
+                .build();
+            domain_label.add_css_class("article-domain");
+            metadata_row.append(&domain_label);
+
+            let separator = gtk::Label::builder().label("·").build();
+            separator.add_css_class("article-metadata-separator");
+            metadata_row.append(&separator);
+        }
+
+        let date_label = gtk::Label::builder()
+            .label(&Self::format_date(time))
+            .xalign(0.0)
+            .selectable(true)
+            .build();
+        date_label.add_css_class("article-date");
+        metadata_row.append(&date_label);
+
+        self.metadata_box.append(&metadata_row);
+
+        // Add description if available
+        if !description.is_empty() {
+            let desc_label = gtk::Label::builder()
+                .label(description)
+                .wrap(true)
+                .xalign(0.0)
+                .selectable(true)
+                .build();
+            desc_label.add_css_class("article-description");
+            self.metadata_box.append(&desc_label);
+        }
+
+        self.metadata_box.set_visible(true);
+    }
+
+    fn extract_domain(url: &str) -> Option<String> {
+        use url::Url;
+
+        if let Ok(parsed_url) = Url::parse(url) {
+            if let Some(host) = parsed_url.host_str() {
+                let domain = host.strip_prefix("www.").unwrap_or(host);
+                return Some(domain.to_string());
+            }
+        }
+        None
+    }
+
+    fn format_date(time: f64) -> String {
+        use chrono::DateTime;
+
+        if time == 0.0 {
+            return String::from("Unknown date");
+        }
+
+        let timestamp = time as i64;
+        let datetime = DateTime::from_timestamp(timestamp, 0);
+
+        match datetime {
+            Some(dt) => {
+                let now = chrono::Utc::now();
+                let duration = now.signed_duration_since(dt);
+
+                if duration.num_days() == 0 {
+                    String::from("Today")
+                } else if duration.num_days() == 1 {
+                    String::from("Yesterday")
+                } else if duration.num_days() < 7 {
+                    format!("{} days ago", duration.num_days())
+                } else if duration.num_weeks() < 4 {
+                    let weeks = duration.num_weeks();
+                    if weeks == 1 {
+                        String::from("1 week ago")
+                    } else {
+                        format!("{} weeks ago", weeks)
+                    }
+                } else {
+                    dt.format("%B %d, %Y").to_string()
+                }
+            }
+            None => String::from("Unknown date"),
+        }
     }
 
     fn render_html(&self, html: &str) {

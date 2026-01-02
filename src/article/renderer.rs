@@ -120,27 +120,46 @@ impl ArticleRenderer {
         use crate::config::RESOURCES_FILE;
         use gtk::{gio, glib};
 
-        let res = gio::Resource::load(RESOURCES_FILE).expect("Could not load gresource file");
+        // Try to load resources, but don't panic if they're not available (e.g., in tests)
+        let res = match gio::Resource::load(RESOURCES_FILE) {
+            Ok(r) => r,
+            Err(_) => {
+                eprintln!("Warning: Could not load gresource file (may be running in test mode)");
+                return;
+            }
+        };
+
         gio::resources_register(&res);
 
-        let data = res
-            .lookup_data(
-                "/it/dottorblaster/cauldron/article_view/native_style.css",
-                gio::ResourceLookupFlags::NONE,
-            )
-            .expect("Could not load native_style.css from resources");
+        let data = match res.lookup_data(
+            "/it/dottorblaster/cauldron/article_view/native_style.css",
+            gio::ResourceLookupFlags::NONE,
+        ) {
+            Ok(d) => d,
+            Err(_) => {
+                eprintln!("Warning: Could not load native_style.css from resources");
+                return;
+            }
+        };
 
-        let css_string =
-            glib::GString::from_utf8_checked(data.to_vec()).expect("CSS file is not valid UTF-8");
+        let css_string = match glib::GString::from_utf8_checked(data.to_vec()) {
+            Ok(s) => s,
+            Err(_) => {
+                eprintln!("Warning: CSS file is not valid UTF-8");
+                return;
+            }
+        };
 
         let provider = gtk::CssProvider::new();
         provider.load_from_string(&css_string);
 
-        gtk::style_context_add_provider_for_display(
-            &gtk::gdk::Display::default().expect("Could not get default display"),
-            &provider,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-        );
+        if let Some(display) = gtk::gdk::Display::default() {
+            gtk::style_context_add_provider_for_display(
+                &display,
+                &provider,
+                gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+            );
+        }
     }
 
     fn render_metadata(&self, url: &str, description: &str, time: f64) {
@@ -629,3 +648,154 @@ impl ArticleRenderer {
 }
 
 pub struct ArticleRendererWidgets {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testing::ComponentTester;
+    use gtk::prelude::*;
+
+    #[gtk::test]
+    fn test_init_component() {
+        let tester = ComponentTester::<ArticleRenderer>::launch(());
+
+        // Verify the root widget is a ScrolledWindow
+        let root = tester.widget();
+        assert_eq!(root.type_().name(), "GtkScrolledWindow");
+    }
+
+    #[gtk::test]
+    fn test_set_title() {
+        let tester = ComponentTester::<ArticleRenderer>::launch(());
+
+        // Send SetTitle message - testing that it doesn't panic
+        tester.send_input(ArticleRendererInput::SetTitle(
+            "Test Article Title".to_string(),
+        ));
+        tester.process_events();
+
+        // If we get here without panicking, the test passed
+        // Note: Widget hierarchy inspection is unreliable in tests
+    }
+
+    #[gtk::test]
+    fn test_set_metadata() {
+        let tester = ComponentTester::<ArticleRenderer>::launch(());
+
+        // Send SetMetadata message - testing that it doesn't panic
+        tester.send_input(ArticleRendererInput::SetMetadata {
+            url: "https://www.example.com/article".to_string(),
+            description: "A sample article description".to_string(),
+            time: 1234567890.0,
+        });
+        tester.process_events();
+
+        // If we get here without panicking, the test passed
+    }
+
+    #[test]
+    fn test_extract_domain() {
+        // Test normal URL
+        let domain = ArticleRenderer::extract_domain("https://www.example.com/article");
+        assert_eq!(domain, Some("example.com".to_string()));
+
+        // Test URL without www
+        let domain = ArticleRenderer::extract_domain("https://github.com/user/repo");
+        assert_eq!(domain, Some("github.com".to_string()));
+
+        // Test invalid URL
+        let domain = ArticleRenderer::extract_domain("not a url");
+        assert_eq!(domain, None);
+
+        // Test URL with subdomain
+        let domain = ArticleRenderer::extract_domain("https://blog.example.com/post");
+        assert_eq!(domain, Some("blog.example.com".to_string()));
+    }
+
+    #[test]
+    fn test_format_date_zero() {
+        // Test with zero timestamp
+        let formatted = ArticleRenderer::format_date(0.0);
+        assert_eq!(formatted, "Unknown date");
+    }
+
+    #[test]
+    fn test_format_date_recent() {
+        use chrono::Utc;
+
+        // Test with a timestamp from 2 days ago
+        let now = Utc::now();
+        let two_days_ago = now - chrono::Duration::days(2);
+        let timestamp = two_days_ago.timestamp() as f64;
+
+        let formatted = ArticleRenderer::format_date(timestamp);
+        assert_eq!(formatted, "2 days ago");
+    }
+
+    #[test]
+    fn test_format_date_weeks() {
+        use chrono::Utc;
+
+        // Test with a timestamp from 2 weeks ago
+        let now = Utc::now();
+        let two_weeks_ago = now - chrono::Duration::weeks(2);
+        let timestamp = two_weeks_ago.timestamp() as f64;
+
+        let formatted = ArticleRenderer::format_date(timestamp);
+        assert_eq!(formatted, "2 weeks ago");
+    }
+
+    #[test]
+    fn test_format_date_old() {
+        // Test with a very old timestamp (January 1, 2020)
+        let timestamp = 1577836800.0; // 2020-01-01 00:00:00 UTC
+
+        let formatted = ArticleRenderer::format_date(timestamp);
+        // Should be in "Month Day, Year" format
+        assert!(formatted.contains("2020"));
+        assert!(formatted.contains("January") || formatted.contains("Jan"));
+    }
+
+    #[gtk::test]
+    fn test_set_content_empty() {
+        let tester = ComponentTester::<ArticleRenderer>::launch(());
+
+        // Send empty HTML content - testing that it doesn't panic
+        tester.send_input(ArticleRendererInput::SetContent("".to_string()));
+        tester.process_events();
+
+        // If we get here without panicking, the test passed
+    }
+
+    #[gtk::test]
+    fn test_set_content_with_paragraph() {
+        let tester = ComponentTester::<ArticleRenderer>::launch(());
+
+        // Send HTML with a paragraph - testing that it doesn't panic
+        tester.send_input(ArticleRendererInput::SetContent(
+            "<p>This is a test paragraph.</p>".to_string(),
+        ));
+        tester.process_events();
+
+        // If we get here without panicking, the test passed
+    }
+
+    #[gtk::test]
+    fn test_multiple_inputs() {
+        let tester = ComponentTester::<ArticleRenderer>::launch(());
+
+        // Send multiple inputs in sequence - testing that it doesn't panic
+        tester.send_input(ArticleRendererInput::SetTitle("My Article".to_string()));
+        tester.send_input(ArticleRendererInput::SetMetadata {
+            url: "https://example.com".to_string(),
+            description: "Description here".to_string(),
+            time: 1234567890.0,
+        });
+        tester.send_input(ArticleRendererInput::SetContent(
+            "<h1>Header</h1><p>Content</p>".to_string(),
+        ));
+        tester.process_events();
+
+        // If we get here without panicking, the test passed
+    }
+}

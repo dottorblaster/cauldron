@@ -330,4 +330,83 @@ mod tests {
             assert_eq!(article.calculate_reading_time(), "1 min read");
         });
     }
+
+    #[gtk::test]
+    fn test_article_widget_introspection() {
+        let mut tester = FactoryComponentTester::<Article>::new(gtk::ListBox::default());
+
+        // Initialize multiple articles
+        tester.init(ArticleInit {
+            title: "First Article".to_owned(),
+            uri: "https://example.com/first".to_owned(),
+            item_id: "1".to_owned(),
+            description: "First article description".to_owned(),
+            time: 1234567890.0,
+        });
+
+        tester.init(ArticleInit {
+            title: "Second Article".to_owned(),
+            uri: "https://example.com/second".to_owned(),
+            item_id: "2".to_owned(),
+            description: "Second article description".to_owned(),
+            time: 1234567900.0,
+        });
+
+        tester.init(ArticleInit {
+            title: "Third Article".to_owned(),
+            uri: "https://example.com/third".to_owned(),
+            item_id: "3".to_owned(),
+            description: "Third article description".to_owned(),
+            time: 1234567910.0,
+        });
+
+        tester.process_events();
+
+        // Deep assertions: Test that all three articles are rendered
+        assert_eq!(tester.count_factory_children(), 3);
+
+        // Find all ActionRow widgets (one per article)
+        let action_rows: Vec<relm4::adw::ActionRow> = tester.find_all_widgets_by_type();
+        assert_eq!(action_rows.len(), 3);
+
+        // Verify that we can find articles by their title
+        // Note: ActionRow titles are stored internally, so we test the component state instead
+        assert!(tester.find_label_containing_text("First Article").is_some());
+        assert!(tester
+            .find_label_containing_text("Second Article")
+            .is_some());
+        assert!(tester.find_label_containing_text("Third Article").is_some());
+
+        // Collect all children to verify the structure
+        let all_children = tester.collect_factory_children();
+        assert_eq!(all_children.len(), 3, "Should have 3 article rows");
+    }
+
+    #[gtk::test]
+    fn test_article_widget_introspection_single() {
+        let mut tester = FactoryComponentTester::<Article>::new(gtk::ListBox::default());
+
+        // Test with a single article
+        tester.init(ArticleInit {
+            title: "My Article Title".to_owned(),
+            uri: "https://example.com/my-article".to_owned(),
+            item_id: "42".to_owned(),
+            description: "This is a great article about testing".to_owned(),
+            time: 1234567890.0,
+        });
+
+        tester.process_events();
+
+        // Verify exactly one child
+        assert_eq!(tester.count_factory_children(), 1);
+
+        // Find the ActionRow
+        let action_row: Option<relm4::adw::ActionRow> = tester.find_widget_by_type();
+        assert!(action_row.is_some(), "Should find the ActionRow widget");
+
+        // Verify we can find the article's content
+        assert!(tester
+            .find_label_containing_text("My Article Title")
+            .is_some());
+    }
 }

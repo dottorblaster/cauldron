@@ -429,6 +429,7 @@ impl ArticleRenderer {
             let bullet = gtk::Label::new(Some(&prefix));
             bullet.set_xalign(0.0);
             bullet.set_valign(gtk::Align::Start);
+            bullet.add_css_class("article-text");
             item_box.append(&bullet);
 
             let text = self.extract_text_with_formatting(li);
@@ -440,6 +441,8 @@ impl ArticleRenderer {
                 .hexpand(true)
                 .selectable(true)
                 .build();
+
+            content.add_css_class("article-text");
 
             item_box.append(&content);
             container.append(&item_box);

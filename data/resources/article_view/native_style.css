@@ -1,36 +1,46 @@
+@define-color article_text_light #1d1f1c;
+@define-color article_text_dark rgba(255, 255, 255, 0.9);
+@define-color article_metadata_border_light rgba(0, 0, 0, 0.1);
+@define-color article_metadata_border_dark rgba(255, 255, 255, 0.1);
+@define-color article_code_bg_light rgba(0, 0, 0, 0.05);
+@define-color article_code_bg_dark #1e1e1e;
+@define-color article_blockquote_border_light #ccc;
+@define-color article_blockquote_border_dark rgba(255, 255, 255, 0.3);
+
 .article-title {
     font-size: 2.5rem;
     font-weight: 700;
     margin-bottom: 0.5rem;
     font-family: serif;
     line-height: 1.2;
+    color: @window_fg_color;
 }
 
 .article-metadata {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid alpha(@window_fg_color, 0.1);
     padding-bottom: 16px;
 }
 
 .article-domain {
     font-size: 0.95rem;
     font-weight: 600;
-    color: #3584e4;
+    color: @accent_color;
 }
 
 .article-date {
     font-size: 0.95rem;
-    color: rgba(0, 0, 0, 0.6);
+    color: alpha(@window_fg_color, 0.6);
 }
 
 .article-metadata-separator {
-    color: rgba(0, 0, 0, 0.4);
+    color: alpha(@window_fg_color, 0.4);
     margin: 0 4px;
 }
 
 .article-description {
     font-size: 1.1rem;
     line-height: 1.5;
-    color: rgba(0, 0, 0, 0.7);
+    color: alpha(@window_fg_color, 0.7);
     font-style: italic;
     margin-top: 8px;
 }
@@ -41,6 +51,7 @@
     margin-top: 2rem;
     margin-bottom: 1rem;
     font-family: serif;
+    color: @window_fg_color;
 }
 
 .article-h2 {
@@ -49,6 +60,7 @@
     margin-top: 2rem;
     margin-bottom: 1rem;
     font-family: serif;
+    color: @window_fg_color;
 }
 
 .article-h3 {
@@ -56,6 +68,7 @@
     font-weight: 400;
     margin-bottom: 0.5rem;
     font-family: serif;
+    color: @window_fg_color;
 }
 
 .article-h4 {
@@ -64,6 +77,7 @@
     margin-bottom: 0.5rem;
     text-transform: uppercase;
     font-family: serif;
+    color: @window_fg_color;
 }
 
 .article-h5 {
@@ -71,6 +85,7 @@
     font-weight: 400;
     margin-bottom: 0.25rem;
     font-family: serif;
+    color: @window_fg_color;
 }
 
 .article-h6 {
@@ -79,28 +94,31 @@
     margin-bottom: 0.25rem;
     text-transform: uppercase;
     font-family: serif;
+    color: @window_fg_color;
 }
 
 .article-text {
     margin-bottom: 1rem;
-    color: #1d1f1c;
+    color: @window_fg_color;
     font-family: serif;
 }
 
 .article-link {
-    color: #3584e4;
+    color: @accent_color;
 }
 
 .article-code-block {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: alpha(@window_fg_color, 0.05);
     padding: 0.5rem 1rem;
     margin-bottom: 1rem;
     font-family: monospace;
     border-radius: 4px;
+    color: @window_fg_color;
 }
 
 .article-code-block text {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: alpha(@window_fg_color, 0.05);
+    color: @window_fg_color;
 }
 
 .article-blockquote {
@@ -108,7 +126,7 @@
     margin-bottom: 10px;
     margin-left: 3px;
     padding-left: 10px;
-    border-left: 3px solid #ccc;
+    border-left: 3px solid alpha(@window_fg_color, 0.3);
 }
 
 .article-image {
@@ -119,57 +137,4 @@
 .article-image-picture {
     max-width: 2048px;
     width: 100%;
-}
-
-@media (prefers-color-scheme: dark) {
-    .article-title {
-        color: rgba(255, 255, 255, 0.95);
-    }
-
-    .article-metadata {
-        border-bottom-color: rgba(255, 255, 255, 0.1);
-    }
-
-    .article-domain {
-        color: #78aeed;
-    }
-
-    .article-date {
-        color: rgba(255, 255, 255, 0.6);
-    }
-
-    .article-metadata-separator {
-        color: rgba(255, 255, 255, 0.4);
-    }
-
-    .article-description {
-        color: rgba(255, 255, 255, 0.7);
-    }
-
-    .article-text {
-        color: rgba(255, 255, 255, 0.9);
-    }
-
-    .article-h1,
-    .article-h2,
-    .article-h3,
-    .article-h4,
-    .article-h5,
-    .article-h6 {
-        color: rgba(255, 255, 255, 0.9);
-    }
-
-    .article-code-block {
-        background-color: #121212;
-        color: white;
-    }
-
-    .article-code-block text {
-        background-color: #121212;
-        color: white;
-    }
-
-    .article-blockquote {
-        border-left-color: rgba(255, 255, 255, 0.3);
-    }
 }

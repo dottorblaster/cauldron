@@ -668,21 +668,26 @@ mod tests {
     fn test_set_title() {
         let tester = ComponentTester::<ArticleRenderer>::launch(());
 
-        // Send SetTitle message - testing that it doesn't panic
+        // Send SetTitle message
         tester.send_input(ArticleRendererInput::SetTitle(
             "Test Article Title".to_string(),
         ));
         tester.process_events();
 
-        // If we get here without panicking, the test passed
-        // Note: Widget hierarchy inspection is unreliable in tests
+        // Deep assertions: verify the title label was updated and is visible
+        let title_label = tester.find_label_by_css_class("article-title");
+        assert!(title_label.is_some(), "Title label should exist");
+
+        let title_label = title_label.unwrap();
+        assert_eq!(title_label.text().as_str(), "Test Article Title");
+        assert!(title_label.is_visible(), "Title label should be visible");
     }
 
     #[gtk::test]
     fn test_set_metadata() {
         let tester = ComponentTester::<ArticleRenderer>::launch(());
 
-        // Send SetMetadata message - testing that it doesn't panic
+        // Send SetMetadata message
         tester.send_input(ArticleRendererInput::SetMetadata {
             url: "https://www.example.com/article".to_string(),
             description: "A sample article description".to_string(),
@@ -690,7 +695,30 @@ mod tests {
         });
         tester.process_events();
 
-        // If we get here without panicking, the test passed
+        // Deep assertions: verify metadata box is visible
+        let metadata_box = tester.find_widget_by_css_class("article-metadata");
+        assert!(metadata_box.is_some(), "Metadata box should exist");
+        assert!(
+            metadata_box.unwrap().is_visible(),
+            "Metadata box should be visible"
+        );
+
+        // Verify domain label exists and contains the domain
+        let domain_label = tester.find_label_by_css_class("article-domain");
+        assert!(domain_label.is_some(), "Domain label should exist");
+        assert_eq!(domain_label.unwrap().text().as_str(), "example.com");
+
+        // Verify date label exists
+        let date_label = tester.find_label_by_css_class("article-date");
+        assert!(date_label.is_some(), "Date label should exist");
+
+        // Verify description label exists and has the correct text
+        let desc_label = tester.find_label_by_css_class("article-description");
+        assert!(desc_label.is_some(), "Description label should exist");
+        assert_eq!(
+            desc_label.unwrap().text().as_str(),
+            "A sample article description"
+        );
     }
 
     #[test]
@@ -771,20 +799,34 @@ mod tests {
     fn test_set_content_with_paragraph() {
         let tester = ComponentTester::<ArticleRenderer>::launch(());
 
-        // Send HTML with a paragraph - testing that it doesn't panic
+        // Send HTML with a paragraph
         tester.send_input(ArticleRendererInput::SetContent(
             "<p>This is a test paragraph.</p>".to_string(),
         ));
         tester.process_events();
 
-        // If we get here without panicking, the test passed
+        // Deep assertions: verify paragraph was rendered
+        let paragraph_labels = tester.find_all_widgets_by_css_class("article-text");
+        assert!(
+            !paragraph_labels.is_empty(),
+            "At least one paragraph should be rendered"
+        );
+
+        // Verify the paragraph content is correct
+        let first_paragraph = paragraph_labels
+            .first()
+            .unwrap()
+            .clone()
+            .dynamic_cast::<gtk::Label>()
+            .unwrap();
+        assert_eq!(first_paragraph.text().as_str(), "This is a test paragraph.");
     }
 
     #[gtk::test]
     fn test_multiple_inputs() {
         let tester = ComponentTester::<ArticleRenderer>::launch(());
 
-        // Send multiple inputs in sequence - testing that it doesn't panic
+        // Send multiple inputs in sequence
         tester.send_input(ArticleRendererInput::SetTitle("My Article".to_string()));
         tester.send_input(ArticleRendererInput::SetMetadata {
             url: "https://example.com".to_string(),
@@ -796,6 +838,123 @@ mod tests {
         ));
         tester.process_events();
 
-        // If we get here without panicking, the test passed
+        // Deep assertions: verify all components are present and correct
+
+        // Verify title
+        let title_label = tester
+            .find_label_by_css_class("article-title")
+            .expect("Title should exist");
+        assert_eq!(title_label.text().as_str(), "My Article");
+        assert!(title_label.is_visible());
+
+        // Verify metadata
+        assert!(
+            tester.has_widget_with_css_class("article-metadata"),
+            "Metadata should exist"
+        );
+        assert!(
+            tester.has_widget_with_css_class("article-domain"),
+            "Domain label should exist"
+        );
+
+        // Verify content has both heading and paragraph
+        let heading_labels = tester.find_all_widgets_by_css_class("article-h1");
+        assert!(!heading_labels.is_empty(), "Heading should be rendered");
+
+        let paragraph_labels = tester.find_all_widgets_by_css_class("article-text");
+        assert!(!paragraph_labels.is_empty(), "Paragraph should be rendered");
+    }
+
+    #[gtk::test]
+    fn test_set_content_with_complex_html() {
+        let tester = ComponentTester::<ArticleRenderer>::launch(());
+
+        // Send HTML with multiple elements
+        let html = r#"
+            <h1>Main Title</h1>
+            <p>First paragraph with <strong>bold</strong> text.</p>
+            <h2>Subtitle</h2>
+            <p>Second paragraph with <em>italic</em> text.</p>
+        "#;
+
+        tester.send_input(ArticleRendererInput::SetContent(html.to_string()));
+        tester.process_events();
+
+        // Deep assertions: verify all elements are rendered correctly
+
+        // Should have one h1 heading
+        let h1_labels = tester.find_all_widgets_by_css_class("article-h1");
+        assert_eq!(h1_labels.len(), 1, "Should have exactly one h1 heading");
+
+        // Should have one h2 heading
+        let h2_labels = tester.find_all_widgets_by_css_class("article-h2");
+        assert_eq!(h2_labels.len(), 1, "Should have exactly one h2 heading");
+
+        // Should have two paragraphs
+        let paragraph_labels = tester.find_all_widgets_by_css_class("article-text");
+        assert_eq!(
+            paragraph_labels.len(),
+            2,
+            "Should have exactly two paragraphs"
+        );
+
+        // Verify the h1 content includes the text "Main Title"
+        let h1_widget = h1_labels
+            .first()
+            .unwrap()
+            .clone()
+            .dynamic_cast::<gtk::Label>()
+            .unwrap();
+        let h1_text = h1_widget.text();
+        assert!(
+            h1_text.contains("Main Title"),
+            "H1 should contain 'Main Title', got: {}",
+            h1_text
+        );
+
+        // Verify first paragraph contains bold markup
+        let first_para = paragraph_labels
+            .first()
+            .unwrap()
+            .clone()
+            .dynamic_cast::<gtk::Label>()
+            .unwrap();
+        assert!(first_para.uses_markup(), "Paragraph should use markup");
+    }
+
+    #[gtk::test]
+    fn test_visibility_changes() {
+        let tester = ComponentTester::<ArticleRenderer>::launch(());
+
+        // Initially, title should not be visible (or not exist yet in a meaningful way)
+        // After setting title, it should become visible
+        tester.send_input(ArticleRendererInput::SetTitle(
+            "Now Visible Title".to_string(),
+        ));
+        tester.process_events();
+
+        let title_label = tester
+            .find_label_by_css_class("article-title")
+            .expect("Title label should exist");
+        assert!(
+            title_label.is_visible(),
+            "Title should be visible after SetTitle"
+        );
+
+        // Metadata should become visible after SetMetadata
+        tester.send_input(ArticleRendererInput::SetMetadata {
+            url: "https://test.com".to_string(),
+            description: "Test description".to_string(),
+            time: 1234567890.0,
+        });
+        tester.process_events();
+
+        let metadata_box = tester
+            .find_widget_by_css_class("article-metadata")
+            .expect("Metadata box should exist");
+        assert!(
+            metadata_box.is_visible(),
+            "Metadata should be visible after SetMetadata"
+        );
     }
 }

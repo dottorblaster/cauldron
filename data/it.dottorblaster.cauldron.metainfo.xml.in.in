@@ -27,6 +27,18 @@
   <url type="translate">https://github.com/dottorblaster/cauldron/tree/master/po</url>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.8.0" date="2026-01-03">
+      <description translatable="no">
+        <p>This release includes new features and improvements:</p>
+        <ul>
+          <li>Add new articles directly from the app</li>
+          <li>Display article metadata (author, word count, reading time) in both sidebar and article view</li>
+          <li>Updated to Relm4 0.10.1 and latest flume version for improved stability</li>
+          <li>Comprehensive test coverage with GTK and Relm4 UI testing framework</li>
+          <li>Continuous integration with automated testing</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.7.1" date="2026-01-01">
       <description translatable="no">
         <p>This release includes new features and improvements:</p>

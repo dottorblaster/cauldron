@@ -1,7 +1,7 @@
 project(
   'cauldron',
   'rust',
-  version: '0.7.1',
+  version: '0.8.0',
   meson_version: '>= 0.59',
   # license: 'MIT',
 )

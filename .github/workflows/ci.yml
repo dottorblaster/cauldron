@@ -22,6 +22,26 @@ jobs:
       - name: Run cargo fmt
         run: cargo fmt --all -- --check
 
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gtk-rs/gtk4-rs/gtk4:latest
+    steps:
+    - uses: actions/checkout@v6
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+    - name: Install dependencies
+      run: sudo dnf --assumeyes install openssl-devel desktop-file-utils
+    - name: Generate config.rs
+      run: meson setup builddir --prefix=/usr
+    - name: Build
+      run: cargo build
+    - name: Test
+      run: xvfb-run --auto-servernum cargo test
+
   flatpak:
     name: Flatpak
     runs-on: ubuntu-latest

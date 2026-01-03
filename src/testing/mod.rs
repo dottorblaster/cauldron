@@ -498,6 +498,14 @@ where
         &self.controller
     }
 
+    /// Returns a reference to the component's model.
+    ///
+    /// This method provides read-only access to the component's state.
+    /// Note that it returns a `Ref` guard which dereferences automatically.
+    pub fn model(&self) -> std::cell::Ref<'_, C> {
+        self.controller.model()
+    }
+
     // Widget inspection methods
 
     /// Finds the first widget with the specified CSS class in the component's widget tree.

@@ -24,7 +24,7 @@ pub enum AddBookmarkInput {
     Cancel,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AddBookmarkOutput {
     BookmarkAdded(String),
     Cancelled,
@@ -136,7 +136,10 @@ impl Component for AddBookmarkDialog {
 
         let widgets = view_output!();
 
-        root.present(Some(&relm4::main_application().windows()[0]));
+        // Only present the dialog if we're not in a test environment
+        if !cfg!(test) {
+            root.present(Some(&relm4::main_application().windows()[0]));
+        }
 
         ComponentParts { model, widgets }
     }
@@ -213,5 +216,189 @@ impl Component for AddBookmarkDialog {
                 self.error_message = Some(error);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testing::ComponentTester;
+
+    fn mock_tokens() -> TokenPair {
+        TokenPair {
+            oauth_token: "test_token".to_string(),
+            oauth_token_secret: "test_secret".to_string(),
+        }
+    }
+
+    #[gtk::test]
+    fn test_init_component() {
+        let tokens = mock_tokens();
+        let tester = ComponentTester::<AddBookmarkDialog>::launch(tokens.clone());
+        tester.process_events();
+
+        // Component should initialize with empty values
+        assert_eq!(tester.model().url, "");
+        assert_eq!(tester.model().error_message, None);
+        assert_eq!(tester.model().is_loading, false);
+        assert_eq!(tester.model().tokens.oauth_token, tokens.oauth_token);
+        assert_eq!(
+            tester.model().tokens.oauth_token_secret,
+            tokens.oauth_token_secret
+        );
+    }
+
+    #[gtk::test]
+    fn test_set_url() {
+        let tester = ComponentTester::<AddBookmarkDialog>::launch(mock_tokens());
+        tester.send_input(AddBookmarkInput::SetUrl(
+            "https://example.com/article".to_string(),
+        ));
+        tester.process_events();
+
+        assert_eq!(tester.model().url, "https://example.com/article");
+        assert_eq!(tester.model().error_message, None);
+    }
+
+    #[gtk::test]
+    fn test_submit_with_empty_url() {
+        let tester = ComponentTester::<AddBookmarkDialog>::launch(mock_tokens());
+        tester.send_input(AddBookmarkInput::Submit);
+        tester.process_events();
+
+        assert_eq!(
+            tester.model().error_message,
+            Some("Please enter a URL".to_string())
+        );
+        assert_eq!(tester.model().is_loading, false);
+    }
+
+    #[gtk::test]
+    fn test_submit_with_invalid_url_no_protocol() {
+        let tester = ComponentTester::<AddBookmarkDialog>::launch(mock_tokens());
+        tester.send_input(AddBookmarkInput::SetUrl("example.com/article".to_string()));
+        tester.send_input(AddBookmarkInput::Submit);
+        tester.process_events();
+
+        assert_eq!(
+            tester.model().error_message,
+            Some("URL must start with http:// or https://".to_string())
+        );
+        assert_eq!(tester.model().is_loading, false);
+    }
+
+    #[gtk::test]
+    fn test_submit_with_invalid_url_ftp_protocol() {
+        let tester = ComponentTester::<AddBookmarkDialog>::launch(mock_tokens());
+        tester.send_input(AddBookmarkInput::SetUrl(
+            "ftp://example.com/file".to_string(),
+        ));
+        tester.send_input(AddBookmarkInput::Submit);
+        tester.process_events();
+
+        assert_eq!(
+            tester.model().error_message,
+            Some("URL must start with http:// or https://".to_string())
+        );
+        assert_eq!(tester.model().is_loading, false);
+    }
+
+    #[gtk::test]
+    fn test_submit_with_valid_http_url() {
+        let tester = ComponentTester::<AddBookmarkDialog>::launch(mock_tokens());
+        tester.send_input(AddBookmarkInput::SetUrl(
+            "http://example.com/article".to_string(),
+        ));
+        tester.send_input(AddBookmarkInput::Submit);
+        tester.process_events();
+
+        // Should set loading state for async operation
+        assert_eq!(tester.model().is_loading, true);
+        assert_eq!(tester.model().error_message, None);
+    }
+
+    #[gtk::test]
+    fn test_submit_with_valid_https_url() {
+        let tester = ComponentTester::<AddBookmarkDialog>::launch(mock_tokens());
+        tester.send_input(AddBookmarkInput::SetUrl(
+            "https://example.com/article".to_string(),
+        ));
+        tester.send_input(AddBookmarkInput::Submit);
+        tester.process_events();
+
+        // Should set loading state for async operation
+        assert_eq!(tester.model().is_loading, true);
+        assert_eq!(tester.model().error_message, None);
+    }
+
+    #[gtk::test]
+    fn test_cancel_sends_output() {
+        let tester = ComponentTester::<AddBookmarkDialog>::launch(mock_tokens());
+        tester.send_input(AddBookmarkInput::Cancel);
+        tester.process_events();
+
+        // Check that Cancelled output was sent
+        let output = tester.try_recv_output();
+        assert!(matches!(output, Some(AddBookmarkOutput::Cancelled)));
+    }
+
+    #[gtk::test]
+    fn test_error_clears_on_url_change() {
+        let tester = ComponentTester::<AddBookmarkDialog>::launch(mock_tokens());
+
+        // Trigger an error
+        tester.send_input(AddBookmarkInput::Submit);
+        tester.process_events();
+        assert!(tester.model().error_message.is_some());
+
+        // Change URL should clear error
+        tester.send_input(AddBookmarkInput::SetUrl("https://example.com".to_string()));
+        tester.process_events();
+        assert_eq!(tester.model().error_message, None);
+    }
+
+    // Note: Testing update_cmd with async operations requires actually running the async code
+    // or mocking the network layer, which is beyond the scope of basic component testing.
+    // The async behavior is better tested through integration tests.
+
+    // Note: Full widget introspection tests require a fully rendered view hierarchy.
+    // In test mode without presenting the dialog, some GTK widgets may not be fully initialized.
+    // Widget behavior is better tested through integration or UI tests.
+
+    #[gtk::test]
+    fn test_multiple_validation_errors() {
+        let tester = ComponentTester::<AddBookmarkDialog>::launch(mock_tokens());
+
+        // Test empty URL error
+        tester.send_input(AddBookmarkInput::Submit);
+        tester.process_events();
+        assert_eq!(
+            tester.model().error_message,
+            Some("Please enter a URL".to_string())
+        );
+
+        // Clear error by setting a URL (but invalid protocol)
+        tester.send_input(AddBookmarkInput::SetUrl("example.com".to_string()));
+        tester.process_events();
+        assert_eq!(tester.model().error_message, None);
+
+        // Test protocol error
+        tester.send_input(AddBookmarkInput::Submit);
+        tester.process_events();
+        assert_eq!(
+            tester.model().error_message,
+            Some("URL must start with http:// or https://".to_string())
+        );
+
+        // Fix the URL
+        tester.send_input(AddBookmarkInput::SetUrl("https://example.com".to_string()));
+        tester.process_events();
+        assert_eq!(tester.model().error_message, None);
+
+        // Should now trigger async operation
+        tester.send_input(AddBookmarkInput::Submit);
+        tester.process_events();
+        assert_eq!(tester.model().is_loading, true);
+        assert_eq!(tester.model().error_message, None);
     }
 }

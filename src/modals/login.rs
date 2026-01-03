@@ -25,7 +25,7 @@ pub enum LoginInput {
     Cancel,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LoginOutput {
     LoggedIn(TokenPair, String),
     Cancelled,
@@ -144,7 +144,10 @@ impl Component for LoginDialog {
 
         let widgets = view_output!();
 
-        root.present(Some(&relm4::main_application().windows()[0]));
+        // Only present the dialog if we're not in a test environment
+        if !cfg!(test) {
+            root.present(Some(&relm4::main_application().windows()[0]));
+        }
 
         ComponentParts { model, widgets }
     }
@@ -227,4 +230,146 @@ impl Component for LoginDialog {
             }
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testing::ComponentTester;
+
+    #[gtk::test]
+    fn test_init_component() {
+        let tester = ComponentTester::<LoginDialog>::launch(());
+        tester.process_events();
+
+        // Component should initialize with empty values
+        assert_eq!(tester.model().username, "");
+        assert_eq!(tester.model().password, "");
+        assert_eq!(tester.model().error_message, None);
+        assert_eq!(tester.model().is_loading, false);
+    }
+
+    #[gtk::test]
+    fn test_set_username() {
+        let tester = ComponentTester::<LoginDialog>::launch(());
+        tester.send_input(LoginInput::SetUsername("test@example.com".to_string()));
+        tester.process_events();
+
+        assert_eq!(tester.model().username, "test@example.com");
+        assert_eq!(tester.model().error_message, None);
+    }
+
+    #[gtk::test]
+    fn test_set_password() {
+        let tester = ComponentTester::<LoginDialog>::launch(());
+        tester.send_input(LoginInput::SetPassword("password123".to_string()));
+        tester.process_events();
+
+        assert_eq!(tester.model().password, "password123");
+        assert_eq!(tester.model().error_message, None);
+    }
+
+    #[gtk::test]
+    fn test_submit_with_empty_username() {
+        let tester = ComponentTester::<LoginDialog>::launch(());
+        tester.send_input(LoginInput::SetPassword("password123".to_string()));
+        tester.send_input(LoginInput::Submit);
+        tester.process_events();
+
+        assert_eq!(
+            tester.model().error_message,
+            Some("Please enter both username and password".to_string())
+        );
+        assert_eq!(tester.model().is_loading, false);
+    }
+
+    #[gtk::test]
+    fn test_submit_with_empty_password() {
+        let tester = ComponentTester::<LoginDialog>::launch(());
+        tester.send_input(LoginInput::SetUsername("test@example.com".to_string()));
+        tester.send_input(LoginInput::Submit);
+        tester.process_events();
+
+        assert_eq!(
+            tester.model().error_message,
+            Some("Please enter both username and password".to_string())
+        );
+        assert_eq!(tester.model().is_loading, false);
+    }
+
+    #[gtk::test]
+    fn test_submit_with_both_empty() {
+        let tester = ComponentTester::<LoginDialog>::launch(());
+        tester.send_input(LoginInput::Submit);
+        tester.process_events();
+
+        assert_eq!(
+            tester.model().error_message,
+            Some("Please enter both username and password".to_string())
+        );
+        assert_eq!(tester.model().is_loading, false);
+    }
+
+    #[gtk::test]
+    fn test_submit_with_valid_credentials_sets_loading() {
+        let tester = ComponentTester::<LoginDialog>::launch(());
+        tester.send_input(LoginInput::SetUsername("test@example.com".to_string()));
+        tester.send_input(LoginInput::SetPassword("password123".to_string()));
+        tester.send_input(LoginInput::Submit);
+        tester.process_events();
+
+        // After submit with valid credentials, loading should be true
+        // (async operation will be in progress)
+        assert_eq!(tester.model().is_loading, true);
+        assert_eq!(tester.model().error_message, None);
+    }
+
+    #[gtk::test]
+    fn test_cancel_sends_output() {
+        let tester = ComponentTester::<LoginDialog>::launch(());
+        tester.send_input(LoginInput::Cancel);
+        tester.process_events();
+
+        // Check that Cancelled output was sent
+        let output = tester.try_recv_output();
+        assert!(matches!(output, Some(LoginOutput::Cancelled)));
+    }
+
+    #[gtk::test]
+    fn test_error_clears_on_username_change() {
+        let tester = ComponentTester::<LoginDialog>::launch(());
+
+        // Trigger an error
+        tester.send_input(LoginInput::Submit);
+        tester.process_events();
+        assert!(tester.model().error_message.is_some());
+
+        // Change username should clear error
+        tester.send_input(LoginInput::SetUsername("test@example.com".to_string()));
+        tester.process_events();
+        assert_eq!(tester.model().error_message, None);
+    }
+
+    #[gtk::test]
+    fn test_error_clears_on_password_change() {
+        let tester = ComponentTester::<LoginDialog>::launch(());
+
+        // Trigger an error
+        tester.send_input(LoginInput::Submit);
+        tester.process_events();
+        assert!(tester.model().error_message.is_some());
+
+        // Change password should clear error
+        tester.send_input(LoginInput::SetPassword("password123".to_string()));
+        tester.process_events();
+        assert_eq!(tester.model().error_message, None);
+    }
+
+    // Note: Testing update_cmd with async operations requires actually running the async code
+    // or mocking the network layer, which is beyond the scope of basic component testing.
+    // The async behavior is better tested through integration tests.
+
+    // Note: Full widget introspection tests require a fully rendered view hierarchy.
+    // In test mode without presenting the dialog, some GTK widgets may not be fully initialized.
+    // Widget behavior is better tested through integration or UI tests.
 }

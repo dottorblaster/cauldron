@@ -5,7 +5,7 @@ Cauldron is a GNOME desktop application written in Rust that allows you to read 
 
 <div align="center">
 
-![Main window](data/resources/screenshots/screenshot2.png "Main window")
+![Main window](data/resources/screenshots/main_view.png "Main window")
 </div>
 
 ## Features

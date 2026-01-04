@@ -27,6 +27,15 @@
   <url type="translate">https://github.com/dottorblaster/cauldron/tree/master/po</url>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.9.0" date="2026-01-04">
+      <description translatable="no">
+        <p>This release includes new features and improvements:</p>
+        <ul>
+          <li>Article list filtering to easily find and organize your saved content</li>
+          <li>Proper dark mode support with improved theming and visual consistency</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.8.0" date="2026-01-03">
       <description translatable="no">
         <p>This release includes new features and improvements:</p>

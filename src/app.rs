@@ -8,8 +8,8 @@ use relm4::{
 };
 
 use gtk::prelude::{
-    ApplicationExt, ApplicationWindowExt, ButtonExt, GtkWindowExt, OrientableExt, SettingsExt,
-    WidgetExt,
+    ApplicationExt, ApplicationWindowExt, ButtonExt, EditableExt, GtkWindowExt, OrientableExt,
+    SettingsExt, WidgetExt,
 };
 use gtk::{gio, glib};
 
@@ -38,6 +38,9 @@ pub(super) struct App {
     login_dialog: Option<Controller<LoginDialog>>,
     add_bookmark_dialog: Option<Controller<AddBookmarkDialog>>,
     article_renderer: Controller<ArticleRenderer>,
+    search_mode: bool,
+    search_query: String,
+    all_articles: Vec<Article>,
 }
 
 #[derive(Debug)]
@@ -55,6 +58,9 @@ pub(super) enum AppMsg {
     ShowAddBookmarkDialog,
     AddBookmarkCompleted(String),
     AddBookmarkCancelled,
+    ToggleSearchMode,
+    UpdateSearchQuery(String),
+    ClearSearch,
 }
 
 #[derive(Debug)]
@@ -122,33 +128,60 @@ impl Component for App {
                     adw::ToolbarView {
                         set_top_bar_style: adw::ToolbarStyle::Raised,
 
-                        add_top_bar = &adw::HeaderBar {
-                            pack_start = if model.loading {
-                                &adw::Spinner {
-                                    set_halign: gtk::Align::Center,
-                                    set_valign: gtk::Align::Center,
-                                }
-                            } else {
-                                &gtk::Button {
-                                    set_icon_name: "view-refresh-symbolic",
-                                    connect_clicked => AppMsg::RefreshArticles
-                                }
-                            },
-
-                            pack_end = &gtk::Box {
-                                gtk::Button {
-                                    #[watch]
-                                    set_visible: model.tokens.is_some(),
-                                    set_icon_name: "list-add-symbolic",
-                                    set_tooltip_text: Some("Add bookmark"),
-                                    connect_clicked => AppMsg::ShowAddBookmarkDialog,
+                        add_top_bar = if model.search_mode {
+                            &adw::HeaderBar {
+                                #[wrap(Some)]
+                                set_title_widget = &gtk::SearchEntry {
+                                    set_placeholder_text: Some("Search articles..."),
+                                    connect_search_changed[sender] => move |entry| {
+                                        sender.input(AppMsg::UpdateSearchQuery(entry.text().to_string()));
+                                    },
+                                    grab_focus: (),
                                 },
 
-                                gtk::MenuButton {
-                                    set_icon_name: "open-menu-symbolic",
-                                    set_menu_model: Some(&primary_menu),
+                                pack_end = &gtk::Button {
+                                    set_icon_name: "window-close-symbolic",
+                                    set_tooltip_text: Some("Close search"),
+                                    connect_clicked => AppMsg::ClearSearch,
                                 },
-                            },
+                            }
+                        } else {
+                            &adw::HeaderBar {
+                                pack_start = if model.loading {
+                                    &adw::Spinner {
+                                        set_halign: gtk::Align::Center,
+                                        set_valign: gtk::Align::Center,
+                                    }
+                                } else {
+                                    &gtk::Button {
+                                        set_icon_name: "view-refresh-symbolic",
+                                        connect_clicked => AppMsg::RefreshArticles
+                                    }
+                                },
+
+                                pack_end = &gtk::Box {
+                                    gtk::Button {
+                                        #[watch]
+                                        set_visible: model.tokens.is_some(),
+                                        set_icon_name: "system-search-symbolic",
+                                        set_tooltip_text: Some("Search articles"),
+                                        connect_clicked => AppMsg::ToggleSearchMode,
+                                    },
+
+                                    gtk::Button {
+                                        #[watch]
+                                        set_visible: model.tokens.is_some(),
+                                        set_icon_name: "list-add-symbolic",
+                                        set_tooltip_text: Some("Add bookmark"),
+                                        connect_clicked => AppMsg::ShowAddBookmarkDialog,
+                                    },
+
+                                    gtk::MenuButton {
+                                        set_icon_name: "open-menu-symbolic",
+                                        set_menu_model: Some(&primary_menu),
+                                    },
+                                },
+                            }
                         },
 
                         #[wrap(Some)]
@@ -166,6 +199,8 @@ impl Component for App {
                                 set_visible: model.tokens.is_some(),
                                 add_css_class: "navigation-sidebar",
                                 set_propagate_natural_height: true,
+                                set_vscrollbar_policy: gtk::PolicyType::Automatic,
+                                set_hscrollbar_policy: gtk::PolicyType::Never,
 
                                 gtk::Box {
                                     set_orientation: gtk::Orientation::Vertical,
@@ -256,6 +291,17 @@ impl Component for App {
 
         let cached_articles = articles::read_articles().unwrap_or_default();
 
+        let all_articles: Vec<Article> = cached_articles
+            .iter()
+            .map(|article| Article {
+                title: article.title.clone(),
+                uri: article.uri.clone(),
+                item_id: article.item_id.clone(),
+                description: article.description.clone(),
+                time: article.time,
+            })
+            .collect();
+
         cached_articles.iter().for_each(|article| {
             articles.guard().push_back(ArticleInit {
                 title: article.title.clone(),
@@ -281,6 +327,9 @@ impl Component for App {
             login_dialog: None,
             add_bookmark_dialog: None,
             article_renderer,
+            search_mode: false,
+            search_query: String::new(),
+            all_articles,
         };
 
         let toast_overlay = model.toaster.overlay_widget();
@@ -380,6 +429,9 @@ impl Component for App {
                 self.article_html = None;
                 self.article_uri = None;
                 self.article_item_id = None;
+                self.all_articles.clear();
+                self.search_query.clear();
+                self.search_mode = false;
             }
             AppMsg::RefreshArticles => {
                 if let Some(tokens) = self.tokens.clone() {
@@ -458,6 +510,22 @@ impl Component for App {
             AppMsg::AddBookmarkCancelled => {
                 self.add_bookmark_dialog = None;
             }
+            AppMsg::ToggleSearchMode => {
+                self.search_mode = !self.search_mode;
+                if !self.search_mode {
+                    self.search_query.clear();
+                    self.rebuild_article_list();
+                }
+            }
+            AppMsg::UpdateSearchQuery(query) => {
+                self.search_query = query;
+                self.rebuild_article_list();
+            }
+            AppMsg::ClearSearch => {
+                self.search_mode = false;
+                self.search_query.clear();
+                self.rebuild_article_list();
+            }
         }
     }
 
@@ -470,24 +538,9 @@ impl Component for App {
         match message {
             CommandMsg::RefreshedArticles(entries) => {
                 self.loading = false;
-                self.articles.guard().clear();
-                entries.iter().for_each(
-                    |Article {
-                         title,
-                         uri,
-                         item_id,
-                         description,
-                         time,
-                     }| {
-                        self.articles.guard().push_back(ArticleInit {
-                            title: title.to_owned(),
-                            uri: uri.to_owned(),
-                            item_id: item_id.to_owned(),
-                            description: description.to_owned(),
-                            time: *time,
-                        });
-                    },
-                );
+
+                self.all_articles = entries.clone();
+                self.rebuild_article_list();
 
                 let persisted: Vec<PersistedArticle> = entries
                     .iter()
@@ -509,7 +562,9 @@ impl Component for App {
                 self.article_renderer
                     .emit(ArticleRendererInput::SetContent(html));
             }
-            CommandMsg::ArticleArchived(_item_id) => {
+            CommandMsg::ArticleArchived(item_id) => {
+                self.all_articles.retain(|a| a.item_id != item_id);
+
                 self.article_html = None;
                 self.article_title = None;
                 self.article_uri = None;
@@ -549,6 +604,44 @@ impl Component for App {
         let _ = articles::save_articles(&current_articles);
 
         widgets.save_window_size().unwrap();
+    }
+}
+
+impl App {
+    fn filter_articles(&self) -> Vec<ArticleInit> {
+        if self.search_query.is_empty() {
+            self.all_articles
+                .iter()
+                .map(|a| ArticleInit {
+                    title: a.title.clone(),
+                    uri: a.uri.clone(),
+                    item_id: a.item_id.clone(),
+                    description: a.description.clone(),
+                    time: a.time,
+                })
+                .collect()
+        } else {
+            let query_lower = self.search_query.to_lowercase();
+            self.all_articles
+                .iter()
+                .filter(|a| a.title.to_lowercase().contains(&query_lower))
+                .map(|a| ArticleInit {
+                    title: a.title.clone(),
+                    uri: a.uri.clone(),
+                    item_id: a.item_id.clone(),
+                    description: a.description.clone(),
+                    time: a.time,
+                })
+                .collect()
+        }
+    }
+
+    fn rebuild_article_list(&mut self) {
+        let filtered = self.filter_articles();
+        self.articles.guard().clear();
+        for article in filtered {
+            self.articles.guard().push_back(article);
+        }
     }
 }
 

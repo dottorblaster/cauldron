@@ -18,7 +18,7 @@ pub struct ArticleInit {
     pub time: f64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Article {
     pub title: String,
     pub uri: String,

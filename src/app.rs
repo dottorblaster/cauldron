@@ -692,3 +692,83 @@ async fn get_html(source_url: Option<String>) -> String {
         unreachable!()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_filter_articles_logic() {
+        let article1 = Article {
+            title: "Rust Programming Language".to_string(),
+            uri: "https://example.com/rust".to_string(),
+            item_id: "1".to_string(),
+            description: "About Rust".to_string(),
+            time: 0.0,
+        };
+
+        let article2 = Article {
+            title: "Python Tutorial".to_string(),
+            uri: "https://example.com/python".to_string(),
+            item_id: "2".to_string(),
+            description: "About Python".to_string(),
+            time: 0.0,
+        };
+
+        let article3 = Article {
+            title: "Advanced Rust Patterns".to_string(),
+            uri: "https://example.com/rust-patterns".to_string(),
+            item_id: "3".to_string(),
+            description: "Rust patterns".to_string(),
+            time: 0.0,
+        };
+
+        let all_articles = vec![article1.clone(), article2.clone(), article3.clone()];
+
+        let filter_by_query = |query: &str| -> Vec<ArticleInit> {
+            if query.is_empty() {
+                all_articles
+                    .iter()
+                    .map(|a| ArticleInit {
+                        title: a.title.clone(),
+                        uri: a.uri.clone(),
+                        item_id: a.item_id.clone(),
+                        description: a.description.clone(),
+                        time: a.time,
+                    })
+                    .collect()
+            } else {
+                let query_lower = query.to_lowercase();
+                all_articles
+                    .iter()
+                    .filter(|a| a.title.to_lowercase().contains(&query_lower))
+                    .map(|a| ArticleInit {
+                        title: a.title.clone(),
+                        uri: a.uri.clone(),
+                        item_id: a.item_id.clone(),
+                        description: a.description.clone(),
+                        time: a.time,
+                    })
+                    .collect()
+            }
+        };
+
+        let filtered = filter_by_query("rust");
+        assert_eq!(filtered.len(), 2);
+        assert_eq!(filtered[0].title, "Rust Programming Language");
+        assert_eq!(filtered[1].title, "Advanced Rust Patterns");
+
+        let filtered_upper = filter_by_query("RUST");
+        assert_eq!(filtered_upper.len(), 2);
+
+        let filtered_none = filter_by_query("javascript");
+        assert_eq!(filtered_none.len(), 0);
+
+        let filtered_empty = filter_by_query("");
+        assert_eq!(filtered_empty.len(), 3);
+
+        let filtered_partial = filter_by_query("python");
+        assert_eq!(filtered_partial.len(), 1);
+        assert_eq!(filtered_partial[0].title, "Python Tutorial");
+    }
+}

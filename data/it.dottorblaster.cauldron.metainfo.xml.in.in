@@ -112,6 +112,6 @@
     <control>pointing</control>
   </supports>
   <requires>
-    <display_length compare="ge">360</display_length>
+    <display_length compare="ge">600</display_length>
   </requires>
 </component>

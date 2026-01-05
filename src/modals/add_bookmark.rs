@@ -7,6 +7,8 @@ use relm4::{
     gtk, Component, ComponentParts, ComponentSender, RelmWidgetExt,
 };
 
+use gettextrs::gettext;
+
 use crate::network::instapaper;
 use crate::persistence::token::TokenPair;
 
@@ -45,7 +47,7 @@ impl Component for AddBookmarkDialog {
 
     view! {
         adw::Dialog {
-            set_title: "Add Bookmark",
+            set_title: &gettext("Add Bookmark"),
             set_content_width: 450,
             set_content_height: 250,
 
@@ -54,7 +56,7 @@ impl Component for AddBookmarkDialog {
                 add_top_bar = &adw::HeaderBar {
                     #[wrap(Some)]
                     set_title_widget = &adw::WindowTitle {
-                        set_title: "Add Bookmark",
+                        set_title: &gettext("Add Bookmark"),
                     },
                 },
 
@@ -65,11 +67,11 @@ impl Component for AddBookmarkDialog {
                     set_spacing: 16,
 
                     adw::PreferencesGroup {
-                        set_title: "URL",
-                        set_description: Some("Enter the URL of the article you want to save"),
+                        set_title: &gettext("URL"),
+                        set_description: Some(&gettext("Enter the URL of the article you want to save")),
 
                         adw::EntryRow {
-                            set_title: "Article URL",
+                            set_title: &gettext("Article URL"),
                             set_sensitive: !model.is_loading,
                             connect_changed[sender] => move |entry| {
                                 sender.input(AddBookmarkInput::SetUrl(entry.text().to_string()));
@@ -95,7 +97,7 @@ impl Component for AddBookmarkDialog {
                         set_vexpand: true,
 
                         gtk::Button {
-                            set_label: "Cancel",
+                            set_label: &gettext("Cancel"),
                             set_sensitive: !model.is_loading,
                             connect_clicked => AddBookmarkInput::Cancel,
                         },
@@ -107,7 +109,7 @@ impl Component for AddBookmarkDialog {
                             }
                         } else {
                             gtk::Button {
-                                set_label: "Add",
+                                set_label: &gettext("Add"),
                                 add_css_class: "suggested-action",
                                 connect_clicked => AddBookmarkInput::Submit,
                             }
@@ -152,14 +154,13 @@ impl Component for AddBookmarkDialog {
             }
             AddBookmarkInput::Submit => {
                 if self.url.is_empty() {
-                    self.error_message = Some("Please enter a URL".to_string());
+                    self.error_message = Some(gettext("Please enter a URL"));
                     return;
                 }
 
                 // Basic URL validation
                 if !self.url.starts_with("http://") && !self.url.starts_with("https://") {
-                    self.error_message =
-                        Some("URL must start with http:// or https://".to_string());
+                    self.error_message = Some(gettext("URL must start with http:// or https://"));
                     return;
                 }
 
@@ -175,17 +176,18 @@ impl Component for AddBookmarkDialog {
                     match instapaper::add_bookmark(&client, &tokens, &url).await {
                         Ok(_) => AddBookmarkCommandOutput::AddSuccess,
                         Err(instapaper::InstapaperError::InvalidCredentials) => {
-                            AddBookmarkCommandOutput::AddFailed(
-                                "Invalid credentials. Please log in again.".to_string(),
-                            )
+                            AddBookmarkCommandOutput::AddFailed(gettext(
+                                "Invalid credentials. Please log in again",
+                            ))
                         }
                         Err(instapaper::InstapaperError::RateLimited) => {
-                            AddBookmarkCommandOutput::AddFailed(
-                                "Rate limited. Please try again later.".to_string(),
-                            )
+                            AddBookmarkCommandOutput::AddFailed(gettext(
+                                "Rate limited. Please try again later",
+                            ))
                         }
                         Err(e) => AddBookmarkCommandOutput::AddFailed(format!(
-                            "Failed to add bookmark: {:?}",
+                            "{}: {:?}",
+                            gettext("Failed to add bookmark"),
                             e
                         )),
                     }
@@ -268,7 +270,7 @@ mod tests {
 
         assert_eq!(
             tester.model().error_message,
-            Some("Please enter a URL".to_string())
+            Some(gettext("Please enter a URL"))
         );
         assert_eq!(tester.model().is_loading, false);
     }
@@ -282,7 +284,7 @@ mod tests {
 
         assert_eq!(
             tester.model().error_message,
-            Some("URL must start with http:// or https://".to_string())
+            Some(gettext("URL must start with http:// or https://"))
         );
         assert_eq!(tester.model().is_loading, false);
     }
@@ -298,7 +300,7 @@ mod tests {
 
         assert_eq!(
             tester.model().error_message,
-            Some("URL must start with http:// or https://".to_string())
+            Some(gettext("URL must start with http:// or https://"))
         );
         assert_eq!(tester.model().is_loading, false);
     }
@@ -374,7 +376,7 @@ mod tests {
         tester.process_events();
         assert_eq!(
             tester.model().error_message,
-            Some("Please enter a URL".to_string())
+            Some(gettext("Please enter a URL"))
         );
 
         // Clear error by setting a URL (but invalid protocol)
@@ -387,7 +389,7 @@ mod tests {
         tester.process_events();
         assert_eq!(
             tester.model().error_message,
-            Some("URL must start with http:// or https://".to_string())
+            Some(gettext("URL must start with http:// or https://"))
         );
 
         // Fix the URL

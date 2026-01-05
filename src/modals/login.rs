@@ -7,6 +7,8 @@ use relm4::{
     gtk, Component, ComponentParts, ComponentSender, RelmWidgetExt,
 };
 
+use gettextrs::gettext;
+
 use crate::network::instapaper;
 use crate::persistence::token::TokenPair;
 
@@ -46,7 +48,7 @@ impl Component for LoginDialog {
 
     view! {
         adw::Dialog {
-            set_title: "Login to Instapaper",
+            set_title: &gettext("Login to Instapaper"),
             set_content_width: 400,
             set_content_height: 300,
 
@@ -55,7 +57,7 @@ impl Component for LoginDialog {
                 add_top_bar = &adw::HeaderBar {
                     #[wrap(Some)]
                     set_title_widget = &adw::WindowTitle {
-                        set_title: "Login to Instapaper",
+                        set_title: &gettext("Login to Instapaper"),
                     },
                 },
 
@@ -66,10 +68,10 @@ impl Component for LoginDialog {
                     set_spacing: 16,
 
                     adw::PreferencesGroup {
-                        set_title: "Credentials",
+                        set_title: &gettext("Credentials"),
 
                         adw::EntryRow {
-                            set_title: "Email or Username",
+                            set_title: &gettext("Email or Username"),
                             set_sensitive: !model.is_loading,
                             connect_changed[sender] => move |entry| {
                                 sender.input(LoginInput::SetUsername(entry.text().to_string()));
@@ -77,7 +79,7 @@ impl Component for LoginDialog {
                         },
 
                         adw::PasswordEntryRow {
-                            set_title: "Password",
+                            set_title: &gettext("Password"),
                             set_sensitive: !model.is_loading,
                             connect_changed[sender] => move |entry| {
                                 sender.input(LoginInput::SetPassword(entry.text().to_string()));
@@ -103,7 +105,7 @@ impl Component for LoginDialog {
                         set_vexpand: true,
 
                         gtk::Button {
-                            set_label: "Cancel",
+                            set_label: &gettext("Cancel"),
                             set_sensitive: !model.is_loading,
                             connect_clicked => LoginInput::Cancel,
                         },
@@ -115,7 +117,7 @@ impl Component for LoginDialog {
                             }
                         } else {
                             gtk::Button {
-                                set_label: "Login",
+                                set_label: &gettext("Login"),
                                 add_css_class: "suggested-action",
                                 connect_clicked => LoginInput::Submit,
                             }
@@ -164,8 +166,7 @@ impl Component for LoginDialog {
             }
             LoginInput::Submit => {
                 if self.username.is_empty() || self.password.is_empty() {
-                    self.error_message =
-                        Some("Please enter both username and password".to_string());
+                    self.error_message = Some(gettext("Please enter both username and password"));
                     return;
                 }
 
@@ -187,21 +188,23 @@ impl Component for LoginDialog {
                             }
                         }
                         Err(instapaper::InstapaperError::InvalidCredentials) => {
-                            LoginCommandOutput::LoginFailed(
-                                "Invalid username or password".to_string(),
-                            )
+                            LoginCommandOutput::LoginFailed(gettext("Invalid username or password"))
                         }
                         Err(instapaper::InstapaperError::RateLimited) => {
-                            LoginCommandOutput::LoginFailed(
-                                "Rate limited. Please try again later.".to_string(),
-                            )
+                            LoginCommandOutput::LoginFailed(gettext(
+                                "Rate limited. Please try again later",
+                            ))
                         }
                         Err(instapaper::InstapaperError::ServiceUnavailable) => {
-                            LoginCommandOutput::LoginFailed(
-                                "Instapaper is currently unavailable".to_string(),
-                            )
+                            LoginCommandOutput::LoginFailed(gettext(
+                                "Instapaper is currently unavailable",
+                            ))
                         }
-                        Err(e) => LoginCommandOutput::LoginFailed(format!("Login failed: {:?}", e)),
+                        Err(e) => LoginCommandOutput::LoginFailed(format!(
+                            "{}: {:?}",
+                            gettext("Login failed"),
+                            e
+                        )),
                     }
                 });
             }
@@ -278,7 +281,7 @@ mod tests {
 
         assert_eq!(
             tester.model().error_message,
-            Some("Please enter both username and password".to_string())
+            Some(gettext("Please enter both username and password"))
         );
         assert_eq!(tester.model().is_loading, false);
     }
@@ -292,7 +295,7 @@ mod tests {
 
         assert_eq!(
             tester.model().error_message,
-            Some("Please enter both username and password".to_string())
+            Some(gettext("Please enter both username and password"))
         );
         assert_eq!(tester.model().is_loading, false);
     }
@@ -305,7 +308,7 @@ mod tests {
 
         assert_eq!(
             tester.model().error_message,
-            Some("Please enter both username and password".to_string())
+            Some(gettext("Please enter both username and password"))
         );
         assert_eq!(tester.model().is_loading, false);
     }

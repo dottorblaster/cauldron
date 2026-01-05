@@ -447,7 +447,9 @@ impl Component for App {
                                     crate::article::parse_instapaper_response(bookmarks);
                                 CommandMsg::RefreshedArticles(parsed_entries)
                             }
-                            Err(_) => CommandMsg::RefreshedArticles(vec![]),
+                            Err(e) => {
+                                CommandMsg::Error(format!("Failed to refresh articles: {}", e))
+                            }
                         }
                     });
                 }
@@ -459,9 +461,12 @@ impl Component for App {
                     sender.oneshot_command(async move {
                         let client = instapaper::client();
                         let bookmark_id: i64 = item_id.parse().unwrap_or(0);
-                        let _ = instapaper::archive_bookmark(&client, &tokens, bookmark_id).await;
-
-                        CommandMsg::ArticleArchived(item_id)
+                        match instapaper::archive_bookmark(&client, &tokens, bookmark_id).await {
+                            Ok(_) => CommandMsg::ArticleArchived(item_id),
+                            Err(e) => {
+                                CommandMsg::Error(format!("Failed to archive article: {}", e))
+                            }
+                        }
                     });
                 }
             }
@@ -501,7 +506,7 @@ impl Component for App {
                         let client = instapaper::client();
                         match instapaper::add_bookmark(&client, &tokens, &url).await {
                             Ok(_) => CommandMsg::BookmarkAdded,
-                            Err(e) => CommandMsg::Error(format!("Failed to add bookmark: {:?}", e)),
+                            Err(e) => CommandMsg::Error(format!("Failed to add bookmark: {}", e)),
                         }
                     });
                 }
@@ -583,6 +588,7 @@ impl Component for App {
                 sender.input(AppMsg::RefreshArticles);
             }
             CommandMsg::Error(error) => {
+                self.loading = false;
                 let toast = adw::Toast::builder().title(&error).timeout(5).build();
                 self.toaster.add_toast(toast);
             }

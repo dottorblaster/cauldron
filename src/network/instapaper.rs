@@ -17,6 +17,22 @@ pub enum InstapaperError {
     ParseError(String),
 }
 
+impl std::fmt::Display for InstapaperError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InstapaperError::Network(err) => write!(f, "Network error: {}", err),
+            InstapaperError::InvalidCredentials => {
+                write!(f, "Invalid credentials. Please log in again.")
+            }
+            InstapaperError::RateLimited => write!(f, "Rate limited. Please try again later."),
+            InstapaperError::ServiceUnavailable => {
+                write!(f, "Instapaper service is currently unavailable.")
+            }
+            InstapaperError::ParseError(msg) => write!(f, "Failed to parse response: {}", msg),
+        }
+    }
+}
+
 impl From<reqwest::Error> for InstapaperError {
     fn from(err: reqwest::Error) -> Self {
         InstapaperError::Network(err)
@@ -25,9 +41,11 @@ impl From<reqwest::Error> for InstapaperError {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct InstapaperUser {
+    #[allow(dead_code)]
     pub user_id: i64,
     pub username: String,
     #[serde(flatten)]
+    #[allow(dead_code)]
     pub extra: HashMap<String, serde_json::Value>,
 }
 
@@ -37,17 +55,21 @@ pub struct InstapaperBookmark {
     pub title: String,
     pub url: String,
     #[serde(default)]
+    #[allow(dead_code)]
     pub progress: f64,
     #[serde(default)]
     pub time: f64,
     #[serde(default)]
+    #[allow(dead_code)]
     pub hash: String,
     #[serde(default)]
     pub description: String,
     #[serde(default)]
+    #[allow(dead_code)]
     pub starred: String,
     // Capture any other fields we don't explicitly need
     #[serde(flatten)]
+    #[allow(dead_code)]
     pub extra: HashMap<String, serde_json::Value>,
 }
 
@@ -56,6 +78,7 @@ pub struct InstapaperBookmark {
 pub enum InstapaperResponse {
     User(InstapaperUser),
     Bookmark(InstapaperBookmark),
+    #[allow(dead_code)]
     Meta(MetaResponse),
     Error(ErrorResponse),
     #[serde(other)]
@@ -72,6 +95,7 @@ pub struct ErrorResponse {
 pub struct MetaResponse {
     // Meta objects may have additional fields, but we don't need them
     #[serde(flatten)]
+    #[allow(dead_code)]
     extra: HashMap<String, serde_json::Value>,
 }
 

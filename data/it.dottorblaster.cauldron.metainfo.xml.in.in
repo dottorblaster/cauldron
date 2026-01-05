@@ -35,6 +35,16 @@
   <url type="translate">https://github.com/dottorblaster/cauldron/tree/master/po</url>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.9.3" date="2026-01-05">
+      <description translatable="no">
+        <p>This release includes new features and improvements:</p>
+        <ul>
+          <li>Full internationalization (i18n) support throughout the application</li>
+          <li>Brazilian Portuguese (pt_BR) localization</li>
+          <li>Fixed minimum display length requirement in app metadata</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.9.2" date="2026-01-05">
       <description translatable="no">
         <p>This release includes minor improvements and refinements.</p>

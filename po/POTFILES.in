@@ -1,6 +1,13 @@
+# Data files with translatable markup
 data/it.dottorblaster.cauldron.desktop.in.in
 data/it.dottorblaster.cauldron.gschema.xml.in
 data/it.dottorblaster.cauldron.metainfo.xml.in.in
 data/resources/ui/shortcuts.ui
-data/resources/ui/window.ui
-src/application.rs
+
+# Rust source files with gettext() calls
+src/main.rs
+src/app.rs
+src/modals/login.rs
+src/modals/add_bookmark.rs
+src/modals/about.rs
+src/article/renderer.rs

@@ -13,6 +13,8 @@ use gtk::prelude::{
 };
 use gtk::{gio, glib};
 
+use gettextrs::gettext;
+
 use crate::article::{Article, ArticleInit, ArticleOutput, ArticleRenderer, ArticleRendererInput};
 use crate::config::{APP_ID, PROFILE};
 use crate::modals::about::AboutDialog;
@@ -90,10 +92,10 @@ impl Component for App {
     menu! {
         primary_menu: {
             section! {
-                "_Preferences" => PreferencesAction,
-                "_Keyboard" => ShortcutsAction,
-                "_About Cauldron" => AboutAction,
-                "_Logout" => LogoutAction,
+                &gettext("_Preferences") => PreferencesAction,
+                &gettext("_Keyboard") => ShortcutsAction,
+                &gettext("_About Cauldron") => AboutAction,
+                &gettext("_Logout") => LogoutAction,
             }
         }
     }
@@ -132,7 +134,7 @@ impl Component for App {
                             &adw::HeaderBar {
                                 #[wrap(Some)]
                                 set_title_widget = &gtk::SearchEntry {
-                                    set_placeholder_text: Some("Search articles..."),
+                                    set_placeholder_text: Some(&gettext("Search articles...")),
                                     connect_search_changed[sender] => move |entry| {
                                         sender.input(AppMsg::UpdateSearchQuery(entry.text().to_string()));
                                     },
@@ -141,7 +143,7 @@ impl Component for App {
 
                                 pack_end = &gtk::Button {
                                     set_icon_name: "window-close-symbolic",
-                                    set_tooltip_text: Some("Close search"),
+                                    set_tooltip_text: Some(&gettext("Close search")),
                                     connect_clicked => AppMsg::ClearSearch,
                                 },
                             }
@@ -164,7 +166,7 @@ impl Component for App {
                                         #[watch]
                                         set_visible: model.tokens.is_some(),
                                         set_icon_name: "system-search-symbolic",
-                                        set_tooltip_text: Some("Search articles"),
+                                        set_tooltip_text: Some(&gettext("Search articles")),
                                         connect_clicked => AppMsg::ToggleSearchMode,
                                     },
 
@@ -172,7 +174,7 @@ impl Component for App {
                                         #[watch]
                                         set_visible: model.tokens.is_some(),
                                         set_icon_name: "list-add-symbolic",
-                                        set_tooltip_text: Some("Add bookmark"),
+                                        set_tooltip_text: Some(&gettext("Add bookmark")),
                                         connect_clicked => AppMsg::ShowAddBookmarkDialog,
                                     },
 
@@ -188,7 +190,7 @@ impl Component for App {
                         set_content = &gtk::Box {
                             set_orientation: gtk::Orientation::Vertical,
 
-                            gtk::Button::with_label("Login") {
+                            gtk::Button::with_label(&gettext("Login")) {
                                 #[watch]
                                 set_visible: model.tokens.is_none(),
                                 connect_clicked => AppMsg::StartLogin,
@@ -255,7 +257,7 @@ impl Component for App {
                                     set_visible: model.article_html.is_none(),
                                     add_css_class: "title-1",
                                     set_hexpand: true,
-                                    set_text: "Select an article",
+                                    set_text: &gettext("Select an article"),
                                 },
                                 #[local_ref]
                                 article_renderer_widget -> gtk::ScrolledWindow {
@@ -447,9 +449,11 @@ impl Component for App {
                                     crate::article::parse_instapaper_response(bookmarks);
                                 CommandMsg::RefreshedArticles(parsed_entries)
                             }
-                            Err(e) => {
-                                CommandMsg::Error(format!("Failed to refresh articles: {}", e))
-                            }
+                            Err(e) => CommandMsg::Error(format!(
+                                "{}: {}",
+                                gettext("Failed to refresh articles"),
+                                e
+                            )),
                         }
                     });
                 }
@@ -463,9 +467,11 @@ impl Component for App {
                         let bookmark_id: i64 = item_id.parse().unwrap_or(0);
                         match instapaper::archive_bookmark(&client, &tokens, bookmark_id).await {
                             Ok(_) => CommandMsg::ArticleArchived(item_id),
-                            Err(e) => {
-                                CommandMsg::Error(format!("Failed to archive article: {}", e))
-                            }
+                            Err(e) => CommandMsg::Error(format!(
+                                "{}: {}",
+                                gettext("Failed to archive article"),
+                                e
+                            )),
                         }
                     });
                 }
@@ -474,7 +480,7 @@ impl Component for App {
                 Some(uri) => {
                     let _ = crate::persistence::clipboard::copy(&uri);
                     let toast = adw::Toast::builder()
-                        .title("URL copied to clipboard.")
+                        .title(&gettext("URL copied to clipboard"))
                         .timeout(3000)
                         .build();
                     self.toaster.add_toast(toast);
@@ -506,7 +512,11 @@ impl Component for App {
                         let client = instapaper::client();
                         match instapaper::add_bookmark(&client, &tokens, &url).await {
                             Ok(_) => CommandMsg::BookmarkAdded,
-                            Err(e) => CommandMsg::Error(format!("Failed to add bookmark: {}", e)),
+                            Err(e) => CommandMsg::Error(format!(
+                                "{}: {}",
+                                gettext("Failed to add bookmark"),
+                                e
+                            )),
                         }
                     });
                 }
@@ -581,7 +591,7 @@ impl Component for App {
             }
             CommandMsg::BookmarkAdded => {
                 let toast = adw::Toast::builder()
-                    .title("Bookmark added successfully")
+                    .title(&gettext("Bookmark added successfully"))
                     .timeout(3)
                     .build();
                 self.toaster.add_toast(toast);

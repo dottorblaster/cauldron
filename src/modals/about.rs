@@ -3,6 +3,8 @@ use relm4::{
     adw, adw::prelude::AdwDialogExt, gtk, ComponentParts, ComponentSender, SimpleComponent,
 };
 
+use gettextrs::gettext;
+
 use crate::config::{APP_ID, VERSION};
 
 pub struct AboutDialog {}
@@ -24,9 +26,9 @@ impl SimpleComponent for AboutDialog {
             // Insert your Issues page
             .issue_url("https://github.com/dottorblaster/cauldron/issues")
             // Insert your application name here
-            .application_name("Cauldron")
+            .application_name(&gettext("Cauldron"))
             .version(VERSION)
-            .translator_credits("translator-credits")
+            .translator_credits(&gettext("translator-credits"))
             .copyright("© 2024 Alessio Biancalana")
             .developers(vec!["Alessio Biancalana"])
             .designers(vec!["Alessio Biancalana"])
@@ -79,7 +81,7 @@ mod tests {
 
         // Verify the about dialog properties
         assert_eq!(root.application_icon(), APP_ID);
-        assert_eq!(root.application_name(), "Cauldron");
+        assert_eq!(root.application_name(), gettext("Cauldron"));
         assert_eq!(root.version(), VERSION);
         assert_eq!(root.website(), "https://github.com/dottorblaster/cauldron");
         assert_eq!(
@@ -139,6 +141,6 @@ mod tests {
         tester.process_events();
 
         let root = tester.widget();
-        assert_eq!(root.translator_credits(), "translator-credits");
+        assert_eq!(root.translator_credits(), gettext("translator-credits"));
     }
 }

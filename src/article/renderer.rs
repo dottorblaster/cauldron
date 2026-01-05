@@ -3,6 +3,8 @@ use html_escape::encode_text;
 use relm4::{gtk, ComponentParts, ComponentSender, SimpleComponent};
 use scraper::{ElementRef, Html, Node, Selector};
 
+use gettextrs::{gettext, ngettext};
+
 pub struct ArticleRenderer {
     content_box: gtk::Box,
     title_label: gtk::Label,
@@ -232,7 +234,7 @@ impl ArticleRenderer {
         use chrono::DateTime;
 
         if time == 0.0 {
-            return String::from("Unknown date");
+            return gettext("Unknown date");
         }
 
         let timestamp = time as i64;
@@ -244,23 +246,22 @@ impl ArticleRenderer {
                 let duration = now.signed_duration_since(dt);
 
                 if duration.num_days() == 0 {
-                    String::from("Today")
+                    gettext("Today")
                 } else if duration.num_days() == 1 {
-                    String::from("Yesterday")
+                    gettext("Yesterday")
                 } else if duration.num_days() < 7 {
-                    format!("{} days ago", duration.num_days())
+                    let days = duration.num_days();
+                    ngettext("{} day ago", "{} days ago", days as u32)
+                        .replace("{}", &days.to_string())
                 } else if duration.num_weeks() < 4 {
                     let weeks = duration.num_weeks();
-                    if weeks == 1 {
-                        String::from("1 week ago")
-                    } else {
-                        format!("{} weeks ago", weeks)
-                    }
+                    ngettext("{} week ago", "{} weeks ago", weeks as u32)
+                        .replace("{}", &weeks.to_string())
                 } else {
                     dt.format("%B %d, %Y").to_string()
                 }
             }
-            None => String::from("Unknown date"),
+            None => gettext("Unknown date"),
         }
     }
 

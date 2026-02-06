@@ -28,5 +28,5 @@ html-escape = "0.2"
 chrono = "0.4"
 
 [dev-dependencies]
-mockito = "1.6"
+mockito = "1.7"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

@@ -1,0 +1,357 @@
+# Italian translation for cauldron
+# Copyright (C) 2026 Alessio Biancalana and the Cauldron community
+# This file is distributed under the same license as the cauldron package.
+# Alessio Biancalana <alessio@dottorblaster.it>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: cauldron\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-05 19:16+0100\n"
+"PO-Revision-Date: 2026-02-06 12:00+0100\n"
+"Last-Translator: Alessio Biancalana <alessio@dottorblaster.it>\n"
+"Language-Team: Italian <alessio@dottorblaster.it>\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. Insert your application name here
+#: data/it.dottorblaster.cauldron.desktop.in.in:2
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:8 src/main.rs:40
+#: src/modals/about.rs:29 src/modals/about.rs:84
+msgid "Cauldron"
+msgstr "Cauldron"
+
+#: data/it.dottorblaster.cauldron.desktop.in.in:3
+msgid "Instapaper native client for GNOME"
+msgstr "Client nativo Instapaper per GNOME"
+
+#. Translators: Search terms to find this application. Do NOT translate or localize the semicolons! The list MUST also end with a semicolon!
+#: data/it.dottorblaster.cauldron.desktop.in.in:9
+msgid "GNOME;GTK;Network;Feed;Instapaper;"
+msgstr "GNOME;GTK;Rete;Feed;Instapaper;"
+
+#: data/it.dottorblaster.cauldron.gschema.xml.in:6
+msgid "Window width"
+msgstr "Larghezza della finestra"
+
+#: data/it.dottorblaster.cauldron.gschema.xml.in:10
+msgid "Window height"
+msgstr "Altezza della finestra"
+
+#: data/it.dottorblaster.cauldron.gschema.xml.in:14
+msgid "Window maximized state"
+msgstr "Stato della finestra massimizzata"
+
+#: data/it.dottorblaster.cauldron.gschema.xml.in:18
+msgid "Access token"
+msgstr "Token di accesso"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:9
+msgid "Collect content from the web"
+msgstr "Raccogli contenuti dal web"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:11
+msgid ""
+"Cauldron lets you access and use Instapaper, an online service for storing "
+"web bookmarks. Save anything that piques your interest, and get back to it "
+"when you have time."
+msgstr ""
+"Cauldron ti permette di accedere e utilizzare Instapaper, un servizio online "
+"per salvare segnalibri web. Salva tutto ciò che cattura il tuo interesse e "
+"riprendilo quando hai tempo."
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:16
+msgid "Main window"
+msgstr "Finestra principale"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:20
+msgid "Dark mode"
+msgstr "Modalità scura"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:24
+msgid "Filtered view"
+msgstr "Vista filtrata"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:28
+msgid "Add bookmarks directly from the app"
+msgstr "Aggiungi segnalibri direttamente dall'app"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:40
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:45
+msgid "This release includes minor improvements and refinements."
+msgstr "Questa versione include piccoli miglioramenti e perfezionamenti."
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:50
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:59
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:71
+msgid "This release includes new features and improvements:"
+msgstr "Questa versione include nuove funzionalità e miglioramenti:"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:52
+msgid "Article list filtering to easily find and organize your saved content"
+msgstr "Filtro della lista articoli per trovare e organizzare facilmente i contenuti salvati"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:53
+msgid "Proper dark mode support with improved theming and visual consistency"
+msgstr "Supporto completo alla modalità scura con tema migliorato e coerenza visiva"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:61
+msgid "Add new articles directly from the app"
+msgstr "Aggiungi nuovi articoli direttamente dall'app"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:62
+msgid ""
+"Display article metadata (author, word count, reading time) in both sidebar "
+"and article view"
+msgstr ""
+"Mostra i metadati dell'articolo (autore, conteggio parole, tempo di lettura) "
+"sia nella barra laterale che nella vista articolo"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:63
+msgid "Updated to Relm4 0.10.1 and latest flume version for improved stability"
+msgstr "Aggiornato a Relm4 0.10.1 e all'ultima versione di flume per una maggiore stabilità"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:64
+msgid "Comprehensive test coverage with GTK and Relm4 UI testing framework"
+msgstr "Copertura completa dei test con framework di test dell'interfaccia GTK e Relm4"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:65
+msgid "Continuous integration with automated testing"
+msgstr "Integrazione continua con test automatizzati"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:73
+msgid "Native article view for reading content directly in the app"
+msgstr "Vista nativa degli articoli per leggere i contenuti direttamente nell'app"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:74
+msgid "Articles now persist across app restarts"
+msgstr "Gli articoli ora persistono tra i riavvii dell'app"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:75
+msgid "Automatically scroll to top when rendering a new article"
+msgstr "Scorrimento automatico verso l'alto durante il rendering di un nuovo articolo"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:76
+msgid ""
+"Updated dependencies (open, tracing, tracing-subscriber) for improved "
+"performance"
+msgstr ""
+"Dipendenze aggiornate (open, tracing, tracing-subscriber) per prestazioni "
+"migliorate"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:82
+msgid "This release includes major changes and improvements:"
+msgstr "Questa versione include modifiche e miglioramenti importanti:"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:84
+msgid "Migration from Pocket to Instapaper as the backend service"
+msgstr "Migrazione da Pocket a Instapaper come servizio di backend"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:85
+msgid "Upgraded to GNOME 49 runtime and LLVM 20"
+msgstr "Aggiornato al runtime di GNOME 49 e LLVM 20"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:86
+msgid ""
+"Updated multiple dependencies (serde, serde_json, url, gettext-rs, reqwest) "
+"for improved security and performance"
+msgstr ""
+"Aggiornate molteplici dipendenze (serde, serde_json, url, gettext-rs, reqwest) "
+"per una maggiore sicurezza e prestazioni"
+
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:92
+msgid ""
+"This release includes the possibility to copy the articles' URL to the "
+"clipboard and opening them in the browser. Enjoy!"
+msgstr ""
+"Questa versione include la possibilità di copiare l'URL degli articoli negli "
+"appunti e di aprirli nel browser. Buona lettura!"
+
+#. developer_name tag deprecated with Appstream 1.0
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:97
+#: data/it.dottorblaster.cauldron.metainfo.xml.in.in:100
+msgid "Alessio Biancalana"
+msgstr "Alessio Biancalana"
+
+#: data/resources/ui/shortcuts.ui:11
+msgctxt "shortcut window"
+msgid "General"
+msgstr "Generale"
+
+#: data/resources/ui/shortcuts.ui:14
+msgctxt "shortcut window"
+msgid "Show Shortcuts"
+msgstr "Mostra scorciatoie"
+
+#: data/resources/ui/shortcuts.ui:20
+msgctxt "shortcut window"
+msgid "Quit"
+msgstr "Esci"
+
+#: src/app.rs:95
+msgid "_Preferences"
+msgstr "_Preferenze"
+
+#: src/app.rs:96
+msgid "_Keyboard"
+msgstr "_Tastiera"
+
+#: src/app.rs:97
+msgid "_About Cauldron"
+msgstr "_Informazioni su Cauldron"
+
+#: src/app.rs:98
+msgid "_Logout"
+msgstr "_Esci"
+
+#: src/app.rs:137
+msgid "Search articles..."
+msgstr "Cerca articoli..."
+
+#: src/app.rs:146
+msgid "Close search"
+msgstr "Chiudi ricerca"
+
+#: src/app.rs:169
+msgid "Search articles"
+msgstr "Cerca articoli"
+
+#: src/app.rs:177
+msgid "Add bookmark"
+msgstr "Aggiungi segnalibro"
+
+#: src/app.rs:193 src/modals/login.rs:120
+msgid "Login"
+msgstr "Accedi"
+
+#: src/app.rs:260
+msgid "Select an article"
+msgstr "Seleziona un articolo"
+
+#: src/app.rs:453
+msgid "Failed to refresh articles"
+msgstr "Impossibile aggiornare gli articoli"
+
+#: src/app.rs:469
+msgid "Failed to archive article"
+msgstr "Impossibile archiviare l'articolo"
+
+#: src/app.rs:479
+msgid "URL copied to clipboard"
+msgstr "URL copiato negli appunti"
+
+#: src/app.rs:511 src/modals/add_bookmark.rs:191
+msgid "Failed to add bookmark"
+msgstr "Impossibile aggiungere il segnalibro"
+
+#: src/app.rs:586
+msgid "Bookmark added successfully"
+msgstr "Segnalibro aggiunto con successo"
+
+#: src/modals/login.rs:51 src/modals/login.rs:60
+msgid "Login to Instapaper"
+msgstr "Accedi a Instapaper"
+
+#: src/modals/login.rs:71
+msgid "Credentials"
+msgstr "Credenziali"
+
+#: src/modals/login.rs:74
+msgid "Email or Username"
+msgstr "Email o nome utente"
+
+#: src/modals/login.rs:82
+msgid "Password"
+msgstr "Password"
+
+#: src/modals/login.rs:108 src/modals/add_bookmark.rs:100
+msgid "Cancel"
+msgstr "Annulla"
+
+#: src/modals/login.rs:170 src/modals/login.rs:283 src/modals/login.rs:297
+#: src/modals/login.rs:310
+msgid "Please enter both username and password"
+msgstr "Inserisci sia il nome utente che la password"
+
+#: src/modals/login.rs:193
+msgid "Invalid username or password"
+msgstr "Nome utente o password non validi"
+
+#: src/modals/login.rs:198 src/modals/add_bookmark.rs:186
+msgid "Rate limited. Please try again later"
+msgstr "Limite di richieste raggiunto. Riprova più tardi"
+
+#: src/modals/login.rs:203
+msgid "Instapaper is currently unavailable"
+msgstr "Instapaper non è al momento disponibile"
+
+#: src/modals/login.rs:206
+msgid "Login failed"
+msgstr "Accesso non riuscito"
+
+#: src/modals/add_bookmark.rs:50 src/modals/add_bookmark.rs:59
+msgid "Add Bookmark"
+msgstr "Aggiungi segnalibro"
+
+#: src/modals/add_bookmark.rs:70
+msgid "URL"
+msgstr "URL"
+
+#: src/modals/add_bookmark.rs:71
+msgid "Enter the URL of the article you want to save"
+msgstr "Inserisci l'URL dell'articolo che vuoi salvare"
+
+#: src/modals/add_bookmark.rs:74
+msgid "Article URL"
+msgstr "URL dell'articolo"
+
+#: src/modals/add_bookmark.rs:112
+msgid "Add"
+msgstr "Aggiungi"
+
+#: src/modals/add_bookmark.rs:157 src/modals/add_bookmark.rs:274
+#: src/modals/add_bookmark.rs:380
+msgid "Please enter a URL"
+msgstr "Inserisci un URL"
+
+#: src/modals/add_bookmark.rs:164 src/modals/add_bookmark.rs:288
+#: src/modals/add_bookmark.rs:304 src/modals/add_bookmark.rs:393
+msgid "URL must start with http:// or https://"
+msgstr "L'URL deve iniziare con http:// o https://"
+
+#: src/modals/add_bookmark.rs:181
+msgid "Invalid credentials. Please log in again"
+msgstr "Credenziali non valide. Effettua nuovamente l'accesso"
+
+#: src/modals/about.rs:31 src/modals/about.rs:144
+msgid "translator-credits"
+msgstr "Alessio Biancalana"
+
+#: src/article/renderer.rs:237 src/article/renderer.rs:264
+msgid "Unknown date"
+msgstr "Data sconosciuta"
+
+#: src/article/renderer.rs:249
+msgid "Today"
+msgstr "Oggi"
+
+#: src/article/renderer.rs:251
+msgid "Yesterday"
+msgstr "Ieri"
+
+#: src/article/renderer.rs:254
+#, rust-format
+msgid "{} day ago"
+msgid_plural "{} days ago"
+msgstr[0] "{} giorno fa"
+msgstr[1] "{} giorni fa"
+
+#: src/article/renderer.rs:258
+#, rust-format
+msgid "{} week ago"
+msgid_plural "{} weeks ago"
+msgstr[0] "{} settimana fa"
+msgstr[1] "{} settimane fa"

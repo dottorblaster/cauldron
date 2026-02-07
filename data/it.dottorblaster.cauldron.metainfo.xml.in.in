@@ -35,6 +35,15 @@
   <url type="translate">https://github.com/dottorblaster/cauldron/tree/master/po</url>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.9.5" date="2026-02-07">
+      <description translatable="no">
+        <p>This release includes improvements and updates:</p>
+        <ul>
+          <li>Comprehensive README update documenting all available features</li>
+          <li>Updated dependencies for improved stability and performance</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.9.4" date="2026-02-07">
       <description translatable="no">
         <p>This release includes new features and improvements:</p>

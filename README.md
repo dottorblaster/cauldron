@@ -10,11 +10,15 @@ Cauldron is a GNOME desktop application written in Rust that allows you to read 
 
 ## Features
 
-- Instapaper Integration: Cauldron seamlessly integrates with your Instapaper account, allowing you to access and read the articles you have saved.
-- GNOME-Friendly UI: The application's user interface is designed to blend in with the GNOME desktop environment, providing a native and intuitive experience.
-- Responsive Design: Cauldron's layout adapts to different screen sizes and resolutions, ensuring a great experience on a variety of devices.
--Offline Reading (coming soon): You can download articles for offline viewing, making it easy to read your saved content even when you're not connected to the internet.
-- Customization: The application offers various customization options, such as light and dark themes, to suit your personal preferences.
+- **Instapaper Integration**: Cauldron seamlessly integrates with your Instapaper account, allowing you to access and read the articles you have saved.
+- **Native Article View**: Read your saved content directly in the app with a clean, distraction-free reading experience.
+- **Add Bookmarks**: Save new articles to your Instapaper account directly from Cauldron without leaving the app.
+- **Article Filtering**: Quickly find specific articles with built-in search and filtering capabilities.
+- **Article Metadata**: View useful information like author, word count, and estimated reading time for each article.
+- **Persistent Storage**: Your articles are cached locally and persist across app restarts for quick access.
+- **GNOME-Friendly UI**: The application's user interface is designed to blend in with the GNOME desktop environment, providing a native and intuitive experience.
+- **Responsive Design**: Cauldron's layout adapts to different screen sizes and resolutions, ensuring a great experience on a variety of devices.
+- **Dark Mode**: Full support for both light and dark themes that adapt to your system preferences.
 
 ## Installation
 

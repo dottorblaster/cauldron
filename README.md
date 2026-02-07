@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/dottorblaster/cauldron/actions/workflows/ci.yml/badge.svg)](https://github.com/dottorblaster/cauldron/actions/workflows/ci.yml)
 
-Cauldron is a GNOME desktop application written in Rust that allows you to read articles stored in your Pocket account. It is built using the GTK toolkit as the graphical library.
+Cauldron is a GNOME desktop application written in Rust that allows you to read articles stored in your Instapaper account. It is built using the GTK toolkit as the graphical library.
 
 
 <div align="center">
@@ -53,6 +53,20 @@ Once the project is build, run the command below. Please note that these command
 ```shell
 flatpak-builder --run flatpak_app build-aux/it.dottorblaster.cauldron.Devel.json cauldron
 ```
+
+## Release Process
+
+When preparing a new release, follow this checklist to ensure all version references are updated:
+
+1. **Update `Cargo.toml`**: Bump the version number in the `[package]` section
+2. **Update `Cargo.lock`**: Run `cargo build` or `cargo update -p cauldron` to update the lock file with the new version
+3. **Update `meson.build`**: Bump the version number in the `project()` function
+4. **Update `data/it.dottorblaster.cauldron.metainfo.xml.in.in`**: Add a new `<release>` entry at the top of the releases section with:
+   - Version number
+   - Release date
+   - Changelog describing new features, improvements, and bug fixes
+
+After updating these files, commit the changes and create a new git tag matching the version number.
 
 ## Community
 

@@ -1,5 +1,7 @@
 # Cauldron
 
+[![CI](https://github.com/dottorblaster/cauldron/actions/workflows/ci.yml/badge.svg)](https://github.com/dottorblaster/cauldron/actions/workflows/ci.yml)
+
 Cauldron is a GNOME desktop application written in Rust that allows you to read articles stored in your Pocket account. It is built using the GTK toolkit as the graphical library.
 
 

@@ -35,6 +35,14 @@
   <url type="translate">https://github.com/dottorblaster/cauldron/tree/master/po</url>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.9.6" date="2026-02-27">
+      <description translatable="no">
+        <p>This release includes a bug fix:</p>
+        <ul>
+          <li>Fixed a crash when saving articles with multi-byte UTF-8 characters in the description</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.9.5" date="2026-02-07">
       <description translatable="no">
         <p>This release includes improvements and updates:</p>

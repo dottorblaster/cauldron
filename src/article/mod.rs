@@ -62,6 +62,22 @@ impl Article {
         }
     }
 
+    fn truncated_description(&self) -> String {
+        if self.description.is_empty() {
+            return String::new();
+        }
+        if self.description.len() > 100 {
+            // Find the last char boundary at or before byte index 100
+            let mut end = 100;
+            while !self.description.is_char_boundary(end) {
+                end -= 1;
+            }
+            format!("{}...", &self.description[..end])
+        } else {
+            self.description.clone()
+        }
+    }
+
     fn calculate_reading_time(&self) -> String {
         let text = format!("{} {}", self.title, self.description);
         let word_count = text.split_whitespace().count();
@@ -104,12 +120,8 @@ impl FactoryComponent for Article {
             .subtitle({
                 let mut parts = Vec::new();
 
-                if !self.description.is_empty() {
-                    let truncated_desc = if self.description.len() > 100 {
-                        format!("{}...", &self.description[..100])
-                    } else {
-                        self.description.clone()
-                    };
+                let truncated_desc = self.truncated_description();
+                if !truncated_desc.is_empty() {
                     parts.push(truncated_desc);
                 }
 
@@ -328,6 +340,36 @@ mod tests {
 
         tester.get(index3, |article: &Article| {
             assert_eq!(article.calculate_reading_time(), "1 min read");
+        });
+    }
+
+    #[gtk::test]
+    fn test_truncated_description_with_multibyte_char_at_boundary() {
+        let mut tester = FactoryComponentTester::<Article>::new(gtk::ListBox::default());
+
+        // Build a description where a multi-byte character spans the 100-byte boundary.
+        // '\u{a0}' (non-breaking space) is 2 bytes in UTF-8 (0xC2 0xA0).
+        // Place it so bytes 99..101 contain '\u{a0}', making byte index 100 not a char boundary.
+        let mut desc = "a".repeat(99); // 99 ASCII bytes
+        desc.push('\u{a0}'); // bytes 99..101
+        desc.push_str(&"b".repeat(10)); // pad to exceed 100 bytes total
+
+        let index = tester.init(ArticleInit {
+            title: "Test".to_owned(),
+            uri: "https://example.com".to_owned(),
+            item_id: "1".to_owned(),
+            description: desc.clone(),
+            time: 0.0,
+        });
+
+        // This should not panic and should produce a valid truncated string
+        tester.get(index, |article: &Article| {
+            let result = article.truncated_description();
+            assert!(result.ends_with("..."));
+            assert!(result.len() <= 103); // at most 100 bytes of content + "..."
+
+            // Verify it's valid UTF-8 (it is, since it's a String, but also check char boundary)
+            assert!(result.is_char_boundary(result.len() - 3));
         });
     }
 

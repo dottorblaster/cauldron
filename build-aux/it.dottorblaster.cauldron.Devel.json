@@ -40,6 +40,11 @@
             "name": "cauldron",
             "buildsystem": "meson",
             "run-tests": true,
+            "no-debuginfo": true,
+            "build-options": {
+                "strip": false,
+                "no-debuginfo": true
+            },
             "config-opts": [
                 "-Dprofile=development",
                 "-Dconsumer_key=c479361eab394b71ab5229dceade8ec1",

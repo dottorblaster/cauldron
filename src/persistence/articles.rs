@@ -12,6 +12,8 @@ pub struct PersistedArticle {
     pub item_id: String,
     pub description: String,
     pub time: f64,
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 pub fn save_articles(articles: &[PersistedArticle]) -> Result<()> {
@@ -47,4 +49,39 @@ pub fn clear_articles() -> Result<()> {
         std::fs::remove_file(path)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deserialize_persisted_article_without_tags() {
+        let json = r#"{
+            "title": "Test",
+            "uri": "https://example.com",
+            "item_id": "1",
+            "description": "desc",
+            "time": 0.0
+        }"#;
+
+        let article: PersistedArticle = serde_json::from_str(json).unwrap();
+        assert!(article.tags.is_empty());
+    }
+
+    #[test]
+    fn test_roundtrip_persisted_article_with_tags() {
+        let article = PersistedArticle {
+            title: "Test".to_string(),
+            uri: "https://example.com".to_string(),
+            item_id: "1".to_string(),
+            description: "desc".to_string(),
+            time: 0.0,
+            tags: vec!["Rust".to_string(), "Programming".to_string()],
+        };
+
+        let json = serde_json::to_string(&article).unwrap();
+        let deserialized: PersistedArticle = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.tags, vec!["Rust", "Programming"]);
+    }
 }

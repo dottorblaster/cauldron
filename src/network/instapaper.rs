@@ -1,6 +1,6 @@
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::Client;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::config::{CONSUMER_KEY, CONSUMER_SECRET};
@@ -49,6 +49,13 @@ pub struct InstapaperUser {
     pub extra: HashMap<String, serde_json::Value>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct InstapaperTag {
+    #[serde(default)]
+    pub id: i64,
+    pub name: String,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct InstapaperBookmark {
     pub bookmark_id: i64,
@@ -67,6 +74,8 @@ pub struct InstapaperBookmark {
     #[serde(default)]
     #[allow(dead_code)]
     pub starred: String,
+    #[serde(default)]
+    pub tags: Vec<InstapaperTag>,
     // Capture any other fields we don't explicitly need
     #[serde(flatten)]
     #[allow(dead_code)]
@@ -123,6 +132,8 @@ struct BookmarkArchiveRequest {
 #[derive(oauth1_request::Request)]
 struct BookmarkAddRequest<'a> {
     url: &'a str,
+    #[oauth1(skip_if = str::is_empty)]
+    tags: &'a str,
 }
 
 pub fn client() -> Client {
@@ -364,10 +375,24 @@ pub async fn add_bookmark(
     client: &Client,
     tokens: &TokenPair,
     url: &str,
+    tags: &[String],
 ) -> Result<InstapaperBookmark, InstapaperError> {
     let api_url = format!("{}/api/1/bookmarks/add", BASE_URL);
 
-    let request = BookmarkAddRequest { url };
+    let tags_str = if !tags.is_empty() {
+        let tags_json: Vec<serde_json::Value> = tags
+            .iter()
+            .map(|t| serde_json::json!({"name": t}))
+            .collect();
+        serde_json::to_string(&tags_json).unwrap()
+    } else {
+        String::new()
+    };
+
+    let request = BookmarkAddRequest {
+        url,
+        tags: &tags_str,
+    };
     let token = oauth1_request::Token::from_parts(
         CONSUMER_KEY,
         CONSUMER_SECRET,
@@ -388,7 +413,10 @@ pub async fn add_bookmark(
         HeaderValue::from_static("application/x-www-form-urlencoded"),
     );
 
-    let body = format!("url={}", urlencoding::encode(url));
+    let mut body = format!("url={}", urlencoding::encode(url));
+    if !tags_str.is_empty() {
+        body.push_str(&format!("&tags={}", urlencoding::encode(&tags_str)));
+    }
 
     let response = client
         .post(&api_url)
@@ -397,14 +425,16 @@ pub async fn add_bookmark(
         .send()
         .await?;
 
+    println!("add_bookmark status: {}", response.status());
+
     if response.status() == 401 {
         return Err(InstapaperError::InvalidCredentials);
     }
 
     // Instapaper returns an array with the newly added bookmark
-    let items: Vec<InstapaperResponse> = response
-        .json()
-        .await
+    let text = response.text().await?;
+    println!("add_bookmark response: {}", text);
+    let items: Vec<InstapaperResponse> = serde_json::from_str(&text)
         .map_err(|e| InstapaperError::ParseError(format!("Failed to parse response: {}", e)))?;
 
     for item in items {
@@ -430,7 +460,7 @@ pub async fn add_bookmark(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mockito::{Mock, Server};
+    use mockito::Server;
 
     fn create_test_tokens() -> TokenPair {
         TokenPair {
@@ -664,9 +694,14 @@ mod tests {
 
         let client = Client::new();
         let tokens = create_test_tokens();
-        let result =
-            add_bookmark_with_base_url(&client, &tokens, "https://example.com/new", &server.url())
-                .await;
+        let result = add_bookmark_with_base_url(
+            &client,
+            &tokens,
+            "https://example.com/new",
+            &[],
+            &server.url(),
+        )
+        .await;
 
         mock.assert_async().await;
         assert!(result.is_ok());
@@ -686,9 +721,14 @@ mod tests {
 
         let client = Client::new();
         let tokens = create_test_tokens();
-        let result =
-            add_bookmark_with_base_url(&client, &tokens, "https://example.com/new", &server.url())
-                .await;
+        let result = add_bookmark_with_base_url(
+            &client,
+            &tokens,
+            "https://example.com/new",
+            &[],
+            &server.url(),
+        )
+        .await;
 
         mock.assert_async().await;
         assert!(matches!(result, Err(InstapaperError::InvalidCredentials)));
@@ -707,12 +747,51 @@ mod tests {
 
         let client = Client::new();
         let tokens = create_test_tokens();
-        let result =
-            add_bookmark_with_base_url(&client, &tokens, "https://example.com/new", &server.url())
-                .await;
+        let result = add_bookmark_with_base_url(
+            &client,
+            &tokens,
+            "https://example.com/new",
+            &[],
+            &server.url(),
+        )
+        .await;
 
         mock.assert_async().await;
         assert!(matches!(result, Err(InstapaperError::RateLimited)));
+    }
+
+    #[tokio::test]
+    async fn test_add_bookmark_with_tags() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("POST", "/api/1/bookmarks/add")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"[
+                {"type":"bookmark","bookmark_id":1000,"title":"Tagged Article","url":"https://example.com/tagged","description":"","time":0.0,"progress":0.0,"hash":"","starred":"0","tags":[{"id":1,"name":"Rust"},{"id":2,"name":"Programming"}]}
+            ]"#)
+            .create_async()
+            .await;
+
+        let client = Client::new();
+        let tokens = create_test_tokens();
+        let tags = vec!["Rust".to_string(), "Programming".to_string()];
+        let result = add_bookmark_with_base_url(
+            &client,
+            &tokens,
+            "https://example.com/tagged",
+            &tags,
+            &server.url(),
+        )
+        .await;
+
+        mock.assert_async().await;
+        assert!(result.is_ok());
+        let bookmark = result.unwrap();
+        assert_eq!(bookmark.bookmark_id, 1000);
+        assert_eq!(bookmark.tags.len(), 2);
+        assert_eq!(bookmark.tags[0].name, "Rust");
+        assert_eq!(bookmark.tags[1].name, "Programming");
     }
 
     async fn authenticate_with_base_url(
@@ -922,10 +1001,25 @@ mod tests {
         client: &Client,
         tokens: &TokenPair,
         url: &str,
+        tags: &[String],
         base_url: &str,
     ) -> Result<InstapaperBookmark, InstapaperError> {
         let api_url = format!("{}/api/1/bookmarks/add", base_url);
-        let request = BookmarkAddRequest { url };
+
+        let tags_str = if !tags.is_empty() {
+            let tags_json: Vec<serde_json::Value> = tags
+                .iter()
+                .map(|t| serde_json::json!({"name": t}))
+                .collect();
+            serde_json::to_string(&tags_json).unwrap()
+        } else {
+            String::new()
+        };
+
+        let request = BookmarkAddRequest {
+            url,
+            tags: &tags_str,
+        };
         let token = oauth1_request::Token::from_parts(
             CONSUMER_KEY,
             CONSUMER_SECRET,
@@ -942,7 +1036,10 @@ mod tests {
             HeaderValue::from_static("application/x-www-form-urlencoded"),
         );
 
-        let body = format!("url={}", urlencoding::encode(url));
+        let mut body = format!("url={}", urlencoding::encode(url));
+        if !tags_str.is_empty() {
+            body.push_str(&format!("&tags={}", urlencoding::encode(&tags_str)));
+        }
         let response = client
             .post(&api_url)
             .headers(headers)
@@ -977,5 +1074,53 @@ mod tests {
         Err(InstapaperError::ParseError(
             "No bookmark in response".to_string(),
         ))
+    }
+
+    #[test]
+    fn test_deserialize_bookmark_with_tags() {
+        let json = r#"{
+            "type": "bookmark",
+            "bookmark_id": 1,
+            "title": "Test",
+            "url": "https://example.com",
+            "description": "",
+            "time": 0.0,
+            "progress": 0.0,
+            "hash": "",
+            "starred": "0",
+            "tags": [{"id": 12, "name": "Rust"}, {"id": 13, "name": "Programming"}]
+        }"#;
+
+        let response: InstapaperResponse = serde_json::from_str(json).unwrap();
+        if let InstapaperResponse::Bookmark(bookmark) = response {
+            assert_eq!(bookmark.tags.len(), 2);
+            assert_eq!(bookmark.tags[0].name, "Rust");
+            assert_eq!(bookmark.tags[0].id, 12);
+            assert_eq!(bookmark.tags[1].name, "Programming");
+        } else {
+            panic!("Expected Bookmark variant");
+        }
+    }
+
+    #[test]
+    fn test_deserialize_bookmark_without_tags() {
+        let json = r#"{
+            "type": "bookmark",
+            "bookmark_id": 1,
+            "title": "Test",
+            "url": "https://example.com",
+            "description": "",
+            "time": 0.0,
+            "progress": 0.0,
+            "hash": "",
+            "starred": "0"
+        }"#;
+
+        let response: InstapaperResponse = serde_json::from_str(json).unwrap();
+        if let InstapaperResponse::Bookmark(bookmark) = response {
+            assert!(bookmark.tags.is_empty());
+        } else {
+            panic!("Expected Bookmark variant");
+        }
     }
 }

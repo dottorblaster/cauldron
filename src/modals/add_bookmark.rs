@@ -14,6 +14,7 @@ use crate::persistence::token::TokenPair;
 
 pub struct AddBookmarkDialog {
     url: String,
+    tags_input: String,
     error_message: Option<String>,
     is_loading: bool,
     tokens: TokenPair,
@@ -22,13 +23,14 @@ pub struct AddBookmarkDialog {
 #[derive(Debug)]
 pub enum AddBookmarkInput {
     SetUrl(String),
+    SetTags(String),
     Submit,
     Cancel,
 }
 
 #[derive(Debug, Clone)]
 pub enum AddBookmarkOutput {
-    BookmarkAdded(String),
+    BookmarkAdded(String, Vec<String>),
     Cancelled,
 }
 
@@ -77,6 +79,19 @@ impl Component for AddBookmarkDialog {
                                 sender.input(AddBookmarkInput::SetUrl(entry.text().to_string()));
                             },
                             connect_activate => AddBookmarkInput::Submit,
+                        },
+                    },
+
+                    adw::PreferencesGroup {
+                        set_title: &gettext("Tags"),
+                        set_description: Some(&gettext("Comma-separated list of tags (optional)")),
+
+                        adw::EntryRow {
+                            set_title: &gettext("Tags"),
+                            set_sensitive: !model.is_loading,
+                            connect_changed[sender] => move |entry| {
+                                sender.input(AddBookmarkInput::SetTags(entry.text().to_string()));
+                            },
                         },
                     },
 
@@ -131,6 +146,7 @@ impl Component for AddBookmarkDialog {
     ) -> ComponentParts<Self> {
         let model = Self {
             url: String::new(),
+            tags_input: String::new(),
             error_message: None,
             is_loading: false,
             tokens,
@@ -152,6 +168,9 @@ impl Component for AddBookmarkDialog {
                 self.url = url;
                 self.error_message = None;
             }
+            AddBookmarkInput::SetTags(tags) => {
+                self.tags_input = tags;
+            }
             AddBookmarkInput::Submit => {
                 if self.url.is_empty() {
                     self.error_message = Some(gettext("Please enter a URL"));
@@ -169,11 +188,12 @@ impl Component for AddBookmarkDialog {
 
                 let url = self.url.clone();
                 let tokens = self.tokens.clone();
+                let tags = parse_tags(&self.tags_input);
 
                 sender.oneshot_command(async move {
                     let client = instapaper::client();
 
-                    match instapaper::add_bookmark(&client, &tokens, &url).await {
+                    match instapaper::add_bookmark(&client, &tokens, &url, &tags).await {
                         Ok(_) => AddBookmarkCommandOutput::AddSuccess,
                         Err(instapaper::InstapaperError::InvalidCredentials) => {
                             AddBookmarkCommandOutput::AddFailed(gettext(
@@ -210,8 +230,9 @@ impl Component for AddBookmarkDialog {
             AddBookmarkCommandOutput::AddSuccess => {
                 self.is_loading = false;
                 let url = self.url.clone();
+                let tags = parse_tags(&self.tags_input);
                 root.close();
-                let _ = sender.output(AddBookmarkOutput::BookmarkAdded(url));
+                let _ = sender.output(AddBookmarkOutput::BookmarkAdded(url, tags));
             }
             AddBookmarkCommandOutput::AddFailed(error) => {
                 self.is_loading = false;
@@ -219,6 +240,14 @@ impl Component for AddBookmarkDialog {
             }
         }
     }
+}
+
+fn parse_tags(input: &str) -> Vec<String> {
+    input
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect()
 }
 
 #[cfg(test)]
@@ -241,6 +270,7 @@ mod tests {
 
         // Component should initialize with empty values
         assert_eq!(tester.model().url, "");
+        assert_eq!(tester.model().tags_input, "");
         assert_eq!(tester.model().error_message, None);
         assert_eq!(tester.model().is_loading, false);
         assert_eq!(tester.model().tokens.oauth_token, tokens.oauth_token);
@@ -402,5 +432,36 @@ mod tests {
         tester.process_events();
         assert_eq!(tester.model().is_loading, true);
         assert_eq!(tester.model().error_message, None);
+    }
+
+    #[gtk::test]
+    fn test_set_tags() {
+        let tester = ComponentTester::<AddBookmarkDialog>::launch(mock_tokens());
+        tester.send_input(AddBookmarkInput::SetTags("rust, programming".to_string()));
+        tester.process_events();
+
+        assert_eq!(tester.model().tags_input, "rust, programming");
+    }
+
+    #[test]
+    fn test_parse_tags() {
+        assert_eq!(parse_tags("rust, python, go"), vec!["rust", "python", "go"]);
+    }
+
+    #[test]
+    fn test_parse_tags_with_empty_entries() {
+        assert_eq!(parse_tags("rust,,, python, "), vec!["rust", "python"]);
+    }
+
+    #[test]
+    fn test_parse_tags_empty_string() {
+        let result: Vec<String> = parse_tags("");
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_parse_tags_whitespace_only() {
+        let result: Vec<String> = parse_tags("  ,  ,  ");
+        assert!(result.is_empty());
     }
 }

@@ -8,8 +8,8 @@ use relm4::{
 };
 
 use gtk::prelude::{
-    ApplicationExt, ApplicationWindowExt, ButtonExt, EditableExt, GtkWindowExt, OrientableExt,
-    SettingsExt, WidgetExt,
+    ApplicationExt, ApplicationWindowExt, ButtonExt, Cast, EditableExt, GtkWindowExt, ListModelExt,
+    OrientableExt, SettingsExt, WidgetExt,
 };
 use gtk::{gio, glib};
 
@@ -25,6 +25,7 @@ use crate::persistence::articles::{self, PersistedArticle};
 use crate::persistence::token::{self, TokenPair};
 use article_scraper::{FtrConfigEntry, FullTextParser, Readability};
 use reqwest::Client;
+use std::collections::HashSet;
 use url::Url;
 
 pub(super) struct App {
@@ -43,6 +44,9 @@ pub(super) struct App {
     search_mode: bool,
     search_query: String,
     all_articles: Vec<Article>,
+    selected_tag: Option<String>,
+    available_tags: Vec<String>,
+    tag_model: gtk::StringList,
 }
 
 #[derive(Debug)]
@@ -58,11 +62,12 @@ pub(super) enum AppMsg {
     CopyArticleUrl,
     OpenArticle,
     ShowAddBookmarkDialog,
-    AddBookmarkCompleted(String),
+    AddBookmarkCompleted(String, Vec<String>),
     AddBookmarkCancelled,
     ToggleSearchMode,
     UpdateSearchQuery(String),
     ClearSearch,
+    SetTagFilter(Option<String>),
 }
 
 #[derive(Debug)]
@@ -159,6 +164,23 @@ impl Component for App {
                                         set_icon_name: "view-refresh-symbolic",
                                         connect_clicked => AppMsg::RefreshArticles
                                     }
+                                },
+
+                                #[wrap(Some)]
+                                set_title_widget = &gtk::DropDown::new(Some(model.tag_model.clone()), gtk::Expression::NONE) {
+                                    #[watch]
+                                    set_visible: model.tokens.is_some() && !model.available_tags.is_empty(),
+                                    connect_selected_notify[sender] => move |dropdown| {
+                                        let selected = dropdown.selected();
+                                        if selected == 0 || selected == gtk::INVALID_LIST_POSITION {
+                                            sender.input(AppMsg::SetTagFilter(None));
+                                        } else if let Some(item) = dropdown.model()
+                                            .and_then(|m| m.item(selected))
+                                            .and_then(|obj| obj.downcast::<gtk::StringObject>().ok())
+                                        {
+                                            sender.input(AppMsg::SetTagFilter(Some(item.string().to_string())));
+                                        }
+                                    },
                                 },
 
                                 pack_end = &gtk::Box {
@@ -286,7 +308,7 @@ impl Component for App {
         let mut articles = FactoryVecDeque::builder()
             .launch(gtk::ListBox::default())
             .forward(sender.input_sender(), |output| match output {
-                ArticleOutput::ArticleSelected(title, uri, item_id, description, time) => {
+                ArticleOutput::ArticleSelected(title, uri, item_id, description, time, _tags) => {
                     AppMsg::ArticleSelected(title, uri, item_id, description, time)
                 }
             });
@@ -301,6 +323,7 @@ impl Component for App {
                 item_id: article.item_id.clone(),
                 description: article.description.clone(),
                 time: article.time,
+                tags: article.tags.clone(),
             })
             .collect();
 
@@ -311,10 +334,24 @@ impl Component for App {
                 item_id: article.item_id.clone(),
                 description: article.description.clone(),
                 time: article.time,
+                tags: article.tags.clone(),
             });
         });
 
         let article_renderer = ArticleRenderer::builder().launch(()).detach();
+
+        let mut available_tags: Vec<String> = all_articles
+            .iter()
+            .flat_map(|a| a.tags.iter().cloned())
+            .collect::<HashSet<String>>()
+            .into_iter()
+            .collect();
+        available_tags.sort();
+
+        let all_label = gettext("All");
+        let mut tag_items: Vec<&str> = vec![&all_label];
+        tag_items.extend(available_tags.iter().map(|s| s.as_str()));
+        let tag_model = gtk::StringList::new(&tag_items);
 
         let model = Self {
             tokens,
@@ -332,6 +369,9 @@ impl Component for App {
             search_mode: false,
             search_query: String::new(),
             all_articles,
+            selected_tag: None,
+            available_tags,
+            tag_model,
         };
 
         let toast_overlay = model.toaster.overlay_widget();
@@ -434,6 +474,10 @@ impl Component for App {
                 self.all_articles.clear();
                 self.search_query.clear();
                 self.search_mode = false;
+                self.selected_tag = None;
+                self.available_tags.clear();
+                self.tag_model
+                    .splice(0, self.tag_model.n_items(), &[&gettext("All")]);
             }
             AppMsg::RefreshArticles => {
                 if let Some(tokens) = self.tokens.clone() {
@@ -497,8 +541,8 @@ impl Component for App {
                     let add_bookmark_dialog = AddBookmarkDialog::builder().launch(tokens).forward(
                         sender.input_sender(),
                         |output| match output {
-                            AddBookmarkOutput::BookmarkAdded(url) => {
-                                AppMsg::AddBookmarkCompleted(url)
+                            AddBookmarkOutput::BookmarkAdded(url, tags) => {
+                                AppMsg::AddBookmarkCompleted(url, tags)
                             }
                             AddBookmarkOutput::Cancelled => AppMsg::AddBookmarkCancelled,
                         },
@@ -506,11 +550,11 @@ impl Component for App {
                     self.add_bookmark_dialog = Some(add_bookmark_dialog);
                 }
             }
-            AppMsg::AddBookmarkCompleted(url) => {
+            AppMsg::AddBookmarkCompleted(url, tags) => {
                 if let Some(tokens) = self.tokens.clone() {
                     sender.oneshot_command(async move {
                         let client = instapaper::client();
-                        match instapaper::add_bookmark(&client, &tokens, &url).await {
+                        match instapaper::add_bookmark(&client, &tokens, &url, &tags).await {
                             Ok(_) => CommandMsg::BookmarkAdded,
                             Err(e) => CommandMsg::Error(format!(
                                 "{}: {}",
@@ -541,6 +585,10 @@ impl Component for App {
                 self.search_query.clear();
                 self.rebuild_article_list();
             }
+            AppMsg::SetTagFilter(tag) => {
+                self.selected_tag = tag;
+                self.rebuild_article_list();
+            }
         }
     }
 
@@ -555,6 +603,34 @@ impl Component for App {
                 self.loading = false;
 
                 self.all_articles = entries.clone();
+
+                for a in &entries {
+                    if !a.tags.is_empty() {
+                        println!("Article '{}' has tags: {:?}", a.title, a.tags);
+                    }
+                }
+                println!(
+                    "Total articles: {}, articles with tags: {}",
+                    entries.len(),
+                    entries.iter().filter(|a| !a.tags.is_empty()).count()
+                );
+
+                let mut tags: Vec<String> = entries
+                    .iter()
+                    .flat_map(|a| a.tags.iter().cloned())
+                    .collect::<HashSet<String>>()
+                    .into_iter()
+                    .collect();
+                tags.sort();
+                self.available_tags = tags;
+                println!("Available tags: {:?}", self.available_tags);
+
+                let all_label = gettext("All");
+                let mut tag_items: Vec<&str> = vec![&all_label];
+                tag_items.extend(self.available_tags.iter().map(|s| s.as_str()));
+                self.tag_model
+                    .splice(0, self.tag_model.n_items(), &tag_items);
+
                 self.rebuild_article_list();
 
                 let persisted: Vec<PersistedArticle> = entries
@@ -565,6 +641,7 @@ impl Component for App {
                         item_id: a.item_id.clone(),
                         description: a.description.clone(),
                         time: a.time,
+                        tags: a.tags.clone(),
                     })
                     .collect();
 
@@ -615,6 +692,7 @@ impl Component for App {
                 item_id: a.item_id.clone(),
                 description: a.description.clone(),
                 time: a.time,
+                tags: a.tags.clone(),
             })
             .collect();
         let _ = articles::save_articles(&current_articles);
@@ -625,31 +703,31 @@ impl Component for App {
 
 impl App {
     fn filter_articles(&self) -> Vec<ArticleInit> {
-        if self.search_query.is_empty() {
-            self.all_articles
-                .iter()
-                .map(|a| ArticleInit {
-                    title: a.title.clone(),
-                    uri: a.uri.clone(),
-                    item_id: a.item_id.clone(),
-                    description: a.description.clone(),
-                    time: a.time,
-                })
-                .collect()
-        } else {
-            let query_lower = self.search_query.to_lowercase();
-            self.all_articles
-                .iter()
-                .filter(|a| a.title.to_lowercase().contains(&query_lower))
-                .map(|a| ArticleInit {
-                    title: a.title.clone(),
-                    uri: a.uri.clone(),
-                    item_id: a.item_id.clone(),
-                    description: a.description.clone(),
-                    time: a.time,
-                })
-                .collect()
-        }
+        self.all_articles
+            .iter()
+            .filter(|a| {
+                if let Some(ref tag) = self.selected_tag {
+                    if !a.tags.contains(tag) {
+                        return false;
+                    }
+                }
+                if !self.search_query.is_empty() {
+                    let query_lower = self.search_query.to_lowercase();
+                    if !a.title.to_lowercase().contains(&query_lower) {
+                        return false;
+                    }
+                }
+                true
+            })
+            .map(|a| ArticleInit {
+                title: a.title.clone(),
+                uri: a.uri.clone(),
+                item_id: a.item_id.clone(),
+                description: a.description.clone(),
+                time: a.time,
+                tags: a.tags.clone(),
+            })
+            .collect()
     }
 
     fn rebuild_article_list(&mut self) {
@@ -713,78 +791,148 @@ async fn get_html(source_url: Option<String>) -> String {
 mod tests {
     use super::*;
 
+    fn make_article(title: &str, id: &str, tags: Vec<String>) -> Article {
+        Article {
+            title: title.to_string(),
+            uri: format!("https://example.com/{}", id),
+            item_id: id.to_string(),
+            description: format!("About {}", title),
+            time: 0.0,
+            tags,
+        }
+    }
+
+    fn filter_by(all_articles: &[Article], query: &str, tag: Option<&str>) -> Vec<ArticleInit> {
+        all_articles
+            .iter()
+            .filter(|a| {
+                if let Some(tag) = tag {
+                    if !a.tags.contains(&tag.to_string()) {
+                        return false;
+                    }
+                }
+                if !query.is_empty() {
+                    let query_lower = query.to_lowercase();
+                    if !a.title.to_lowercase().contains(&query_lower) {
+                        return false;
+                    }
+                }
+                true
+            })
+            .map(|a| ArticleInit {
+                title: a.title.clone(),
+                uri: a.uri.clone(),
+                item_id: a.item_id.clone(),
+                description: a.description.clone(),
+                time: a.time,
+                tags: a.tags.clone(),
+            })
+            .collect()
+    }
+
     #[test]
     fn test_filter_articles_logic() {
-        let article1 = Article {
-            title: "Rust Programming Language".to_string(),
-            uri: "https://example.com/rust".to_string(),
-            item_id: "1".to_string(),
-            description: "About Rust".to_string(),
-            time: 0.0,
-        };
+        let all_articles = vec![
+            make_article("Rust Programming Language", "1", vec![]),
+            make_article("Python Tutorial", "2", vec![]),
+            make_article("Advanced Rust Patterns", "3", vec![]),
+        ];
 
-        let article2 = Article {
-            title: "Python Tutorial".to_string(),
-            uri: "https://example.com/python".to_string(),
-            item_id: "2".to_string(),
-            description: "About Python".to_string(),
-            time: 0.0,
-        };
-
-        let article3 = Article {
-            title: "Advanced Rust Patterns".to_string(),
-            uri: "https://example.com/rust-patterns".to_string(),
-            item_id: "3".to_string(),
-            description: "Rust patterns".to_string(),
-            time: 0.0,
-        };
-
-        let all_articles = vec![article1.clone(), article2.clone(), article3.clone()];
-
-        let filter_by_query = |query: &str| -> Vec<ArticleInit> {
-            if query.is_empty() {
-                all_articles
-                    .iter()
-                    .map(|a| ArticleInit {
-                        title: a.title.clone(),
-                        uri: a.uri.clone(),
-                        item_id: a.item_id.clone(),
-                        description: a.description.clone(),
-                        time: a.time,
-                    })
-                    .collect()
-            } else {
-                let query_lower = query.to_lowercase();
-                all_articles
-                    .iter()
-                    .filter(|a| a.title.to_lowercase().contains(&query_lower))
-                    .map(|a| ArticleInit {
-                        title: a.title.clone(),
-                        uri: a.uri.clone(),
-                        item_id: a.item_id.clone(),
-                        description: a.description.clone(),
-                        time: a.time,
-                    })
-                    .collect()
-            }
-        };
-
-        let filtered = filter_by_query("rust");
+        let filtered = filter_by(&all_articles, "rust", None);
         assert_eq!(filtered.len(), 2);
         assert_eq!(filtered[0].title, "Rust Programming Language");
         assert_eq!(filtered[1].title, "Advanced Rust Patterns");
 
-        let filtered_upper = filter_by_query("RUST");
+        let filtered_upper = filter_by(&all_articles, "RUST", None);
         assert_eq!(filtered_upper.len(), 2);
 
-        let filtered_none = filter_by_query("javascript");
+        let filtered_none = filter_by(&all_articles, "javascript", None);
         assert_eq!(filtered_none.len(), 0);
 
-        let filtered_empty = filter_by_query("");
+        let filtered_empty = filter_by(&all_articles, "", None);
         assert_eq!(filtered_empty.len(), 3);
 
-        let filtered_partial = filter_by_query("python");
+        let filtered_partial = filter_by(&all_articles, "python", None);
         assert_eq!(filtered_partial.len(), 1);
         assert_eq!(filtered_partial[0].title, "Python Tutorial");
+    }
+
+    #[test]
+    fn test_filter_articles_by_tag() {
+        let all_articles = vec![
+            make_article(
+                "Rust Book",
+                "1",
+                vec!["rust".to_string(), "programming".to_string()],
+            ),
+            make_article("Python Guide", "2", vec!["python".to_string()]),
+            make_article("Rust Patterns", "3", vec!["rust".to_string()]),
+            make_article("No Tags", "4", vec![]),
+        ];
+
+        let filtered = filter_by(&all_articles, "", Some("rust"));
+        assert_eq!(filtered.len(), 2);
+        assert_eq!(filtered[0].title, "Rust Book");
+        assert_eq!(filtered[1].title, "Rust Patterns");
+
+        let filtered_python = filter_by(&all_articles, "", Some("python"));
+        assert_eq!(filtered_python.len(), 1);
+        assert_eq!(filtered_python[0].title, "Python Guide");
+
+        let filtered_none = filter_by(&all_articles, "", Some("nonexistent"));
+        assert_eq!(filtered_none.len(), 0);
+
+        let filtered_all = filter_by(&all_articles, "", None);
+        assert_eq!(filtered_all.len(), 4);
+    }
+
+    #[test]
+    fn test_filter_articles_by_tag_and_search() {
+        let all_articles = vec![
+            make_article(
+                "Rust Book",
+                "1",
+                vec!["rust".to_string(), "programming".to_string()],
+            ),
+            make_article("Rust Patterns", "2", vec!["rust".to_string()]),
+            make_article("Python Guide", "3", vec!["programming".to_string()]),
+        ];
+
+        let filtered = filter_by(&all_articles, "rust", Some("rust"));
+        assert_eq!(filtered.len(), 2);
+
+        let filtered2 = filter_by(&all_articles, "book", Some("rust"));
+        assert_eq!(filtered2.len(), 1);
+        assert_eq!(filtered2[0].title, "Rust Book");
+
+        let filtered3 = filter_by(&all_articles, "guide", Some("rust"));
+        assert_eq!(filtered3.len(), 0);
+    }
+
+    #[test]
+    fn test_collect_available_tags() {
+        let articles = vec![
+            make_article(
+                "A",
+                "1",
+                vec!["rust".to_string(), "programming".to_string()],
+            ),
+            make_article(
+                "B",
+                "2",
+                vec!["python".to_string(), "programming".to_string()],
+            ),
+            make_article("C", "3", vec![]),
+        ];
+
+        let mut tags: Vec<String> = articles
+            .iter()
+            .flat_map(|a| a.tags.iter().cloned())
+            .collect::<HashSet<String>>()
+            .into_iter()
+            .collect();
+        tags.sort();
+
+        assert_eq!(tags, vec!["programming", "python", "rust"]);
     }
 }

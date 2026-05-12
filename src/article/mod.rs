@@ -16,6 +16,7 @@ pub struct ArticleInit {
     pub item_id: String,
     pub description: String,
     pub time: f64,
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -25,6 +26,7 @@ pub struct Article {
     pub item_id: String,
     pub description: String,
     pub time: f64,
+    pub tags: Vec<String>,
 }
 
 impl Article {
@@ -95,7 +97,7 @@ impl Article {
 
 #[derive(Debug)]
 pub enum ArticleOutput {
-    ArticleSelected(String, String, String, String, f64),
+    ArticleSelected(String, String, String, String, f64, Vec<String>),
 }
 
 #[derive(Debug)]
@@ -125,6 +127,14 @@ impl FactoryComponent for Article {
                     parts.push(truncated_desc);
                 }
 
+                if !self.tags.is_empty() {
+                    let tags_display = self.tags.iter()
+                        .map(|t| format!("#{}", t))
+                        .collect::<Vec<_>>()
+                        .join("  ");
+                    parts.push(tags_display);
+                }
+
                 let metadata = format!("{} · {}", self.format_date(), self.calculate_reading_time());
                 parts.push(metadata);
 
@@ -142,6 +152,7 @@ impl FactoryComponent for Article {
             item_id: init.item_id,
             description: init.description,
             time: init.time,
+            tags: init.tags,
         }
     }
 
@@ -155,6 +166,7 @@ impl FactoryComponent for Article {
                         self.item_id.clone(),
                         self.description.clone(),
                         self.time,
+                        self.tags.clone(),
                     ))
                     .unwrap();
             }
@@ -175,6 +187,7 @@ pub fn parse_instapaper_response(bookmarks: Vec<InstapaperBookmark>) -> Vec<Arti
             uri: bookmark.url.clone(),
             description: bookmark.description.clone(),
             time: bookmark.time,
+            tags: bookmark.tags.iter().map(|t| t.name.clone()).collect(),
         })
         .collect();
 
@@ -204,6 +217,7 @@ mod tests {
             progress: 0.0,
             time: 1234567890.0,
             hash: "abc123".to_owned(),
+            tags: vec![],
         }];
 
         let articles = parse_instapaper_response(bookmarks);
@@ -212,6 +226,7 @@ mod tests {
         assert_eq!(articles[0].uri, "https://example.com/article");
         assert_eq!(articles[0].description, "A sample description");
         assert_eq!(articles[0].time, 1234567890.0);
+        assert!(articles[0].tags.is_empty());
     }
 
     #[test]
@@ -226,11 +241,42 @@ mod tests {
             progress: 0.0,
             time: 1234567890.0,
             hash: "abc123".to_owned(),
+            tags: vec![],
         }];
 
         let articles = parse_instapaper_response(bookmarks);
         // When title is empty, should use URL as title
         assert_eq!(articles[0].title, "https://example.com/article");
+    }
+
+    #[test]
+    fn test_parse_instapaper_response_with_tags() {
+        use crate::network::instapaper::InstapaperTag;
+
+        let bookmarks = vec![InstapaperBookmark {
+            description: "".to_owned(),
+            starred: "false".to_owned(),
+            extra: HashMap::new(),
+            bookmark_id: 100,
+            title: "Tagged Article".to_owned(),
+            url: "https://example.com/tagged".to_owned(),
+            progress: 0.0,
+            time: 0.0,
+            hash: "".to_owned(),
+            tags: vec![
+                InstapaperTag {
+                    id: 1,
+                    name: "Rust".to_owned(),
+                },
+                InstapaperTag {
+                    id: 2,
+                    name: "Programming".to_owned(),
+                },
+            ],
+        }];
+
+        let articles = parse_instapaper_response(bookmarks);
+        assert_eq!(articles[0].tags, vec!["Rust", "Programming"]);
     }
 
     #[gtk::test]
@@ -243,6 +289,7 @@ mod tests {
             item_id: "123".to_owned(),
             description: "A test article".to_owned(),
             time: 1234567890.0,
+            tags: vec![],
         });
 
         tester.get(index, |article: &Article| {
@@ -264,6 +311,7 @@ mod tests {
             item_id: "123".to_owned(),
             description: "A test article".to_owned(),
             time: 1234567890.0,
+            tags: vec![],
         });
 
         // Send ArticleSelected input
@@ -290,6 +338,7 @@ mod tests {
             item_id: "1".to_owned(),
             description: "".to_owned(),
             time: 0.0,
+            tags: vec![],
         });
 
         tester.get(index, |article: &Article| {
@@ -309,6 +358,7 @@ mod tests {
             item_id: "1".to_owned(),
             description: "".to_owned(),
             time: 0.0,
+            tags: vec![],
         });
 
         tester.get(index, |article: &Article| {
@@ -322,6 +372,7 @@ mod tests {
             item_id: "2".to_owned(),
             description: "".to_owned(),
             time: 0.0,
+            tags: vec![],
         });
 
         tester.get(index2, |article: &Article| {
@@ -336,6 +387,7 @@ mod tests {
             item_id: "3".to_owned(),
             description: long_description,
             time: 0.0,
+            tags: vec![],
         });
 
         tester.get(index3, |article: &Article| {
@@ -360,6 +412,7 @@ mod tests {
             item_id: "1".to_owned(),
             description: desc.clone(),
             time: 0.0,
+            tags: vec![],
         });
 
         // This should not panic and should produce a valid truncated string
@@ -384,6 +437,7 @@ mod tests {
             item_id: "1".to_owned(),
             description: "First article description".to_owned(),
             time: 1234567890.0,
+            tags: vec![],
         });
 
         tester.init(ArticleInit {
@@ -392,6 +446,7 @@ mod tests {
             item_id: "2".to_owned(),
             description: "Second article description".to_owned(),
             time: 1234567900.0,
+            tags: vec![],
         });
 
         tester.init(ArticleInit {
@@ -400,6 +455,7 @@ mod tests {
             item_id: "3".to_owned(),
             description: "Third article description".to_owned(),
             time: 1234567910.0,
+            tags: vec![],
         });
 
         tester.process_events();
@@ -435,6 +491,7 @@ mod tests {
             item_id: "42".to_owned(),
             description: "This is a great article about testing".to_owned(),
             time: 1234567890.0,
+            tags: vec![],
         });
 
         tester.process_events();

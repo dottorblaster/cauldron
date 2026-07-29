@@ -462,7 +462,6 @@ impl Component for App {
                 self.login_dialog = None;
             }
             AppMsg::Logout => {
-                println!("porco dio");
                 let _ = token::clear_tokens();
                 let _ = articles::clear_articles();
                 self.tokens = None;

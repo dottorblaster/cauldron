@@ -10,7 +10,7 @@ mod persistence;
 pub mod testing;
 
 use config::{APP_ID, GETTEXT_PACKAGE, LOCALEDIR, RESOURCES_FILE};
-use gettextrs::{gettext, LocaleCategory};
+use gettextrs::gettext;
 use gtk::prelude::{ApplicationExt, GtkApplicationExt, GtkWindowExt};
 use gtk::{gio, glib};
 use relm4::{
@@ -24,6 +24,9 @@ relm4::new_action_group!(AppActionGroup, "app");
 relm4::new_stateless_action!(QuitAction, AppActionGroup, "quit");
 
 fn main() {
+    // No explicit setlocale() here: GTK4's gtk::init() calls
+    // setlocale(LC_ALL, "") internally, and since gettext-rs 0.8 that call
+    // is `unsafe` (global state, not thread-safe).
     gtk::init().unwrap();
 
     // Enable logging
@@ -32,8 +35,6 @@ fn main() {
         .with_max_level(tracing::Level::INFO)
         .init();
 
-    // setup gettext
-    gettextrs::setlocale(LocaleCategory::LcAll, "");
     gettextrs::bindtextdomain(GETTEXT_PACKAGE, LOCALEDIR).expect("Unable to bind the text domain");
     gettextrs::textdomain(GETTEXT_PACKAGE).expect("Unable to switch to the text domain");
 

@@ -1,9 +1,11 @@
 pub mod renderer;
 
-use relm4::adw::{prelude::ActionRowExt, ActionRow};
+use relm4::adw::{self, prelude::ActionRowExt, ActionRow};
 use relm4::factory::{DynamicIndex, FactoryComponent, FactorySender};
 use relm4::gtk;
 use relm4::gtk::glib;
+
+use gtk::prelude::*;
 
 use crate::network::instapaper::InstapaperBookmark;
 
@@ -127,22 +129,39 @@ impl FactoryComponent for Article {
                     parts.push(truncated_desc);
                 }
 
-                if !self.tags.is_empty() {
-                    let tags_display = self.tags.iter()
-                        .map(|t| format!("#{}", t))
-                        .collect::<Vec<_>>()
-                        .join("  ");
-                    parts.push(tags_display);
-                }
-
                 let metadata = format!("{} · {}", self.format_date(), self.calculate_reading_time());
                 parts.push(metadata);
 
                 glib::markup_escape_text(&parts.join("\n"))
             })
             .build() {
-            connect_activated => ArticleInput::ArticleSelected
+            connect_activated => ArticleInput::ArticleSelected,
+
+            #[name(tag_box)]
+            add_suffix = &adw::WrapBox::new() {
+                set_valign: gtk::Align::Center,
+                set_halign: gtk::Align::Start,
+            }
         }
+    }
+
+    fn init_widgets(
+        &mut self,
+        _index: &Self::Index,
+        root: Self::Root,
+        _returned_widget: &<Self::ParentWidget as relm4::factory::FactoryView>::ReturnedWidget,
+        sender: FactorySender<Self>,
+    ) -> Self::Widgets {
+        let widgets = view_output!();
+
+        for tag in &self.tags {
+            let pill = gtk::Label::new(Some(&format!("#{}", tag)));
+            pill.add_css_class("pill");
+            pill.set_halign(gtk::Align::Start);
+            widgets.tag_box.append(&pill);
+        }
+
+        widgets
     }
 
     fn init_model(init: Self::Init, _index: &DynamicIndex, _sender: FactorySender<Self>) -> Self {
@@ -507,5 +526,119 @@ mod tests {
         assert!(tester
             .find_label_containing_text("My Article Title")
             .is_some());
+    }
+
+    #[gtk::test]
+    fn test_tags_render_as_pills() {
+        let mut tester = FactoryComponentTester::<Article>::new(gtk::ListBox::default());
+
+        tester.init(ArticleInit {
+            title: "Tagged Article".to_owned(),
+            uri: "https://example.com/tagged".to_owned(),
+            item_id: "1".to_owned(),
+            description: "A tagged article".to_owned(),
+            time: 0.0,
+            tags: vec!["Rust".to_owned(), "UI".to_owned()],
+        });
+
+        tester.process_events();
+
+        // One `.pill` widget per tag
+        let pills = tester.find_all_widgets_by_css_class("pill");
+        assert_eq!(pills.len(), 2, "Should render one pill per tag");
+
+        let pill_texts: Vec<String> = pills
+            .iter()
+            .filter_map(|w| w.clone().dynamic_cast::<gtk::Label>().ok())
+            .map(|label| label.text().to_string())
+            .collect();
+        assert!(pill_texts.contains(&"#Rust".to_string()));
+        assert!(pill_texts.contains(&"#UI".to_string()));
+
+        // Tags must no longer be flattened into the row subtitle
+        let row = tester
+            .find_widget_by_type::<relm4::adw::ActionRow>()
+            .expect("ActionRow should exist");
+        let subtitle = row.subtitle().unwrap_or_default();
+        assert!(
+            !subtitle.contains("#Rust"),
+            "subtitle should not contain flattened tags"
+        );
+        assert!(!subtitle.contains("#UI"));
+    }
+
+    #[gtk::test]
+    fn test_article_without_tags_has_no_pills() {
+        let mut tester = FactoryComponentTester::<Article>::new(gtk::ListBox::default());
+
+        tester.init(ArticleInit {
+            title: "Untagged Article".to_owned(),
+            uri: "https://example.com/untagged".to_owned(),
+            item_id: "2".to_owned(),
+            description: "No tags here".to_owned(),
+            time: 0.0,
+            tags: vec![],
+        });
+
+        tester.process_events();
+
+        assert!(
+            tester.find_all_widgets_by_css_class("pill").is_empty(),
+            "Articles without tags should not render any pills"
+        );
+    }
+
+    #[gtk::test]
+    fn test_pills_update_after_list_rebuild() {
+        use relm4::factory::FactoryVecDeque;
+
+        let list_box = gtk::ListBox::default();
+        let (output_sender, _output_receiver) = flume::unbounded();
+        let output_sender_relm: relm4::Sender<ArticleOutput> = output_sender.into();
+        let mut factory = FactoryVecDeque::<Article>::builder()
+            .launch(list_box.clone())
+            .forward(&output_sender_relm, |msg| msg);
+
+        let push_article =
+            |factory: &mut FactoryVecDeque<Article>, title: &str, tags: Vec<String>| {
+                factory.guard().push_back(ArticleInit {
+                    title: title.to_owned(),
+                    uri: format!("https://example.com/{}", title.to_lowercase()),
+                    item_id: title.to_owned(),
+                    description: format!("Description for {}", title),
+                    time: 0.0,
+                    tags,
+                });
+            };
+        let pill_texts = |list_box: &gtk::ListBox| -> Vec<String> {
+            crate::testing::widget_inspection::find_all_descendants_by_css_class(list_box, "pill")
+                .into_iter()
+                .filter_map(|w| w.dynamic_cast::<gtk::Label>().ok())
+                .map(|label| label.text().to_string())
+                .collect()
+        };
+
+        push_article(&mut factory, "One", vec!["Old".to_owned()]);
+        while gtk::glib::MainContext::default().iteration(false) {}
+
+        assert_eq!(pill_texts(&list_box), vec!["#Old".to_string()]);
+
+        // Simulate a list rebuild (e.g. tag filter change): the factory is
+        // cleared and re-populated, so rows (and their pills) are rebuilt
+        factory.guard().clear();
+        push_article(
+            &mut factory,
+            "Two",
+            vec!["New".to_owned(), "Fresh".to_owned()],
+        );
+        while gtk::glib::MainContext::default().iteration(false) {}
+
+        let mut texts = pill_texts(&list_box);
+        texts.sort();
+        assert_eq!(texts, vec!["#Fresh".to_string(), "#New".to_string()]);
+        assert!(
+            !texts.contains(&"#Old".to_string()),
+            "Pills from the previous row should be gone after the rebuild"
+        );
     }
 }

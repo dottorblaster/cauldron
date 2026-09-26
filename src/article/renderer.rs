@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 use html_escape::encode_text;
-use relm4::{gtk, ComponentParts, ComponentSender, SimpleComponent};
+use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 use scraper::{ElementRef, Html, Node, Selector};
 
 use gettextrs::{gettext, ngettext};
@@ -20,6 +20,7 @@ pub enum ArticleRendererInput {
         url: String,
         description: String,
         time: f64,
+        tags: Vec<String>,
     },
 }
 
@@ -110,8 +111,9 @@ impl SimpleComponent for ArticleRenderer {
                 url,
                 description,
                 time,
+                tags,
             } => {
-                self.render_metadata(&url, &description, time);
+                self.render_metadata(&url, &description, time, &tags);
             }
         }
     }
@@ -164,7 +166,7 @@ impl ArticleRenderer {
         }
     }
 
-    fn render_metadata(&self, url: &str, description: &str, time: f64) {
+    fn render_metadata(&self, url: &str, description: &str, time: f64, tags: &[String]) {
         // Clear existing metadata
         while let Some(child) = self.metadata_box.first_child() {
             self.metadata_box.remove(&child);
@@ -213,6 +215,22 @@ impl ArticleRenderer {
                 .build();
             desc_label.add_css_class("article-description");
             self.metadata_box.append(&desc_label);
+        }
+
+        if !tags.is_empty() {
+            let tag_box = adw::WrapBox::new();
+            tag_box.set_halign(gtk::Align::Start);
+            tag_box.set_child_spacing(6);
+            tag_box.set_line_spacing(6);
+            tag_box.add_css_class("article-tags");
+
+            for tag in tags {
+                let pill = gtk::Label::new(Some(&format!("#{}", tag)));
+                pill.add_css_class("pill");
+                tag_box.append(&pill);
+            }
+
+            self.metadata_box.append(&tag_box);
         }
 
         self.metadata_box.set_visible(true);
@@ -696,6 +714,7 @@ mod tests {
             url: "https://www.example.com/article".to_string(),
             description: "A sample article description".to_string(),
             time: 1234567890.0,
+            tags: vec![],
         });
         tester.process_events();
 
@@ -836,6 +855,7 @@ mod tests {
             url: "https://example.com".to_string(),
             description: "Description here".to_string(),
             time: 1234567890.0,
+            tags: vec![],
         });
         tester.send_input(ArticleRendererInput::SetContent(
             "<h1>Header</h1><p>Content</p>".to_string(),
@@ -950,6 +970,7 @@ mod tests {
             url: "https://test.com".to_string(),
             description: "Test description".to_string(),
             time: 1234567890.0,
+            tags: vec![],
         });
         tester.process_events();
 
@@ -959,6 +980,56 @@ mod tests {
         assert!(
             metadata_box.is_visible(),
             "Metadata should be visible after SetMetadata"
+        );
+    }
+
+    #[gtk::test]
+    fn test_set_metadata_with_tags() {
+        let tester = ComponentTester::<ArticleRenderer>::launch(());
+
+        tester.send_input(ArticleRendererInput::SetMetadata {
+            url: "https://www.example.com/article".to_string(),
+            description: "A sample article description".to_string(),
+            time: 1234567890.0,
+            tags: vec!["Rust".to_string(), "Programming".to_string()],
+        });
+        tester.process_events();
+
+        // One `.pill` widget per tag, rendered inside a wrapping WrapBox
+        let pills = tester.find_all_widgets_by_css_class("pill");
+        assert_eq!(pills.len(), 2, "Should render one pill per tag");
+
+        let pill_texts: Vec<String> = pills
+            .iter()
+            .filter_map(|w| w.clone().dynamic_cast::<gtk::Label>().ok())
+            .map(|label| label.text().to_string())
+            .collect();
+        assert!(pill_texts.contains(&"#Rust".to_string()));
+        assert!(pill_texts.contains(&"#Programming".to_string()));
+
+        let tag_boxes = tester.find_all_widgets_by_css_class("article-tags");
+        assert_eq!(
+            tag_boxes.len(),
+            1,
+            "Tags should be wrapped in an AdwWrapBox"
+        );
+    }
+
+    #[gtk::test]
+    fn test_set_metadata_without_tags_shows_no_pills() {
+        let tester = ComponentTester::<ArticleRenderer>::launch(());
+
+        tester.send_input(ArticleRendererInput::SetMetadata {
+            url: "https://www.example.com/article".to_string(),
+            description: "No tags here".to_string(),
+            time: 1234567890.0,
+            tags: vec![],
+        });
+        tester.process_events();
+
+        assert!(
+            tester.find_all_widgets_by_css_class("pill").is_empty(),
+            "No pills should be rendered when there are no tags"
         );
     }
 }

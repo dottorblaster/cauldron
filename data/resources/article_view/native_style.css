@@ -21,6 +21,10 @@
     padding-bottom: 16px;
 }
 
+.article-tags {
+    margin-top: 12px;
+}
+
 .article-domain {
     font-size: 0.95rem;
     font-weight: 600;

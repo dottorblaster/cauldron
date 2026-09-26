@@ -56,7 +56,7 @@ pub(super) enum AppMsg {
     LoginCompleted(TokenPair, String),
     LoginCancelled,
     Logout,
-    ArticleSelected(String, String, String, String, f64),
+    ArticleSelected(String, String, String, String, f64, Vec<String>),
     RefreshArticles,
     ArchiveArticle,
     CopyArticleUrl,
@@ -308,8 +308,8 @@ impl Component for App {
         let mut articles = FactoryVecDeque::builder()
             .launch(gtk::ListBox::default())
             .forward(sender.input_sender(), |output| match output {
-                ArticleOutput::ArticleSelected(title, uri, item_id, description, time, _tags) => {
-                    AppMsg::ArticleSelected(title, uri, item_id, description, time)
+                ArticleOutput::ArticleSelected(title, uri, item_id, description, time, tags) => {
+                    AppMsg::ArticleSelected(title, uri, item_id, description, time, tags)
                 }
             });
 
@@ -417,7 +417,7 @@ impl Component for App {
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>, _: &Self::Root) {
         match message {
             AppMsg::Quit => main_application().quit(),
-            AppMsg::ArticleSelected(title, uri, item_id, description, time) => {
+            AppMsg::ArticleSelected(title, uri, item_id, description, time, tags) => {
                 self.article_title = Some(title.clone());
                 self.article_uri = Some(uri.clone());
                 self.article_item_id = Some(item_id);
@@ -430,6 +430,7 @@ impl Component for App {
                         url: uri.clone(),
                         description: description.clone(),
                         time,
+                        tags,
                     });
 
                 sender.oneshot_command(async move {

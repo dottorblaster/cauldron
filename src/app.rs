@@ -2,20 +2,19 @@ use relm4::{
     abstractions::Toaster,
     actions::{RelmAction, RelmActionGroup},
     adw::{self, prelude::AdwDialogExt},
-    factory::FactoryVecDeque,
     gtk, main_application, Component, ComponentController, ComponentParts, ComponentSender,
     Controller,
 };
 
 use gtk::prelude::{
-    ApplicationExt, ButtonExt, Cast, EditableExt, GtkApplicationExt, GtkWindowExt, ListModelExt,
-    OrientableExt, SettingsExt, WidgetExt,
+    ApplicationExt, ButtonExt, Cast, EditableExt, GtkApplicationExt, GtkWindowExt, IsA,
+    ListModelExt, OrientableExt, SettingsExt, WidgetExt,
 };
 use gtk::{gio, glib};
 
 use gettextrs::{gettext, pgettext};
 
-use crate::article::{Article, ArticleInit, ArticleOutput, ArticleRenderer, ArticleRendererInput};
+use crate::article::{Article, ArticleRenderer, ArticleRendererInput};
 use crate::config::{APP_ID, PROFILE};
 use crate::modals::about::AboutDialog;
 use crate::modals::add_bookmark::{AddBookmarkDialog, AddBookmarkOutput};
@@ -32,7 +31,6 @@ pub(super) struct App {
     loading: bool,
     tokens: Option<TokenPair>,
     username: String,
-    articles: FactoryVecDeque<Article>,
     article_html: Option<String>,
     article_title: Option<String>,
     article_uri: Option<String>,
@@ -44,6 +42,10 @@ pub(super) struct App {
     search_mode: bool,
     search_query: String,
     all_articles: Vec<Article>,
+    visible_articles: Vec<Article>,
+    sidebar: adw::Sidebar,
+    sidebar_section: adw::SidebarSection,
+    selected_item_id: Option<String>,
     selected_tag: Option<String>,
     available_tags: Vec<String>,
     tag_model: gtk::StringList,
@@ -57,6 +59,7 @@ pub(super) enum AppMsg {
     LoginCancelled,
     Logout,
     ArticleSelected(String, String, String, String, f64, Vec<String>),
+    ArticleActivated(u32),
     RefreshArticles,
     ArchiveArticle,
     CopyArticleUrl,
@@ -208,23 +211,12 @@ impl Component for App {
                                 connect_clicked => AppMsg::StartLogin,
                             },
 
-                            gtk::ScrolledWindow {
+                            #[local_ref]
+                            sidebar_widget -> adw::Sidebar {
+                                set_vexpand: true,
+
                                 #[watch]
                                 set_visible: model.tokens.is_some(),
-                                add_css_class: "navigation-sidebar",
-                                set_propagate_natural_height: true,
-                                set_vscrollbar_policy: gtk::PolicyType::Automatic,
-                                set_hscrollbar_policy: gtk::PolicyType::Never,
-
-                                gtk::Box {
-                                    set_orientation: gtk::Orientation::Vertical,
-
-                                    #[local_ref]
-                                    articles_list_box -> gtk::ListBox {
-                                        set_selection_mode: gtk::SelectionMode::Single,
-                                        add_css_class: "navigation-sidebar",
-                                    }
-                                }
                             }
                         }
                     },
@@ -295,13 +287,15 @@ impl Component for App {
         };
 
         let username = String::new();
-        let mut articles = FactoryVecDeque::builder()
-            .launch(gtk::ListBox::default())
-            .forward(sender.input_sender(), |output| match output {
-                ArticleOutput::ArticleSelected(title, uri, item_id, description, time, tags) => {
-                    AppMsg::ArticleSelected(title, uri, item_id, description, time, tags)
-                }
-            });
+
+        let sidebar_section = adw::SidebarSection::new();
+        let sidebar = adw::Sidebar::new();
+        sidebar.append(sidebar_section.clone());
+
+        let sidebar_sender = sender.clone();
+        sidebar.connect_activated(move |_, position| {
+            sidebar_sender.input(AppMsg::ArticleActivated(position));
+        });
 
         let cached_articles = articles::read_articles().unwrap_or_default();
 
@@ -316,17 +310,6 @@ impl Component for App {
                 tags: article.tags.clone(),
             })
             .collect();
-
-        cached_articles.iter().for_each(|article| {
-            articles.guard().push_back(ArticleInit {
-                title: article.title.clone(),
-                uri: article.uri.clone(),
-                item_id: article.item_id.clone(),
-                description: article.description.clone(),
-                time: article.time,
-                tags: article.tags.clone(),
-            });
-        });
 
         let article_renderer = ArticleRenderer::builder().launch(()).detach();
 
@@ -343,10 +326,13 @@ impl Component for App {
         tag_items.extend(available_tags.iter().map(|s| s.as_str()));
         let tag_model = gtk::StringList::new(&tag_items);
 
-        let model = Self {
+        let mut model = Self {
             tokens,
             username,
-            articles,
+            sidebar,
+            sidebar_section,
+            visible_articles: Vec::new(),
+            selected_item_id: None,
             article_html: None,
             article_title: None,
             article_uri: None,
@@ -364,9 +350,11 @@ impl Component for App {
             tag_model,
         };
 
+        model.rebuild_article_list();
+
         let toast_overlay = model.toaster.overlay_widget();
 
-        let articles_list_box = model.articles.widget();
+        let sidebar_widget = model.sidebar.clone();
 
         let article_renderer_widget = model.article_renderer.widget();
 
@@ -409,6 +397,19 @@ impl Component for App {
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>, _: &Self::Root) {
         match message {
             AppMsg::Quit => main_application().quit(),
+            AppMsg::ArticleActivated(position) => {
+                if let Some(article) = self.visible_articles.get(position as usize) {
+                    self.selected_item_id = Some(article.item_id.clone());
+                    sender.input(AppMsg::ArticleSelected(
+                        article.title.clone(),
+                        article.uri.clone(),
+                        article.item_id.clone(),
+                        article.description.clone(),
+                        article.time,
+                        article.tags.clone(),
+                    ));
+                }
+            }
             AppMsg::ArticleSelected(title, uri, item_id, description, time, tags) => {
                 self.article_title = Some(title.clone());
                 self.article_uri = Some(uri.clone());
@@ -459,7 +460,10 @@ impl Component for App {
                 let _ = articles::clear_articles();
                 self.tokens = None;
                 self.username = String::new();
-                self.articles.guard().clear();
+                self.sidebar_section.remove_all();
+                self.visible_articles.clear();
+                self.selected_item_id = None;
+                self.sidebar.set_selected(gtk::INVALID_LIST_POSITION);
                 self.article_html = None;
                 self.article_uri = None;
                 self.article_item_id = None;
@@ -676,7 +680,7 @@ impl Component for App {
 
     fn shutdown(&mut self, widgets: &mut Self::Widgets, _output: relm4::Sender<Self::Output>) {
         let current_articles: Vec<PersistedArticle> = self
-            .articles
+            .all_articles
             .iter()
             .map(|a| PersistedArticle {
                 title: a.title.clone(),
@@ -694,7 +698,7 @@ impl Component for App {
 }
 
 impl App {
-    fn filter_articles(&self) -> Vec<ArticleInit> {
+    fn filter_articles(&self) -> Vec<Article> {
         self.all_articles
             .iter()
             .filter(|a| {
@@ -711,23 +715,62 @@ impl App {
                 }
                 true
             })
-            .map(|a| ArticleInit {
-                title: a.title.clone(),
-                uri: a.uri.clone(),
-                item_id: a.item_id.clone(),
-                description: a.description.clone(),
-                time: a.time,
-                tags: a.tags.clone(),
-            })
+            .cloned()
             .collect()
     }
 
     fn rebuild_article_list(&mut self) {
         let filtered = self.filter_articles();
-        self.articles.guard().clear();
-        for article in filtered {
-            self.articles.guard().push_back(article);
+
+        // AdwSidebar drops its selection when items are removed and
+        // auto-selects the first item when items are first added, so restore
+        // it explicitly after a rebuild to keep the selection stable across
+        // filter changes.
+        let restore_pos = self
+            .selected_item_id
+            .as_ref()
+            .and_then(|id| filtered.iter().position(|a| &a.item_id == id));
+
+        self.visible_articles = filtered;
+
+        let section = &self.sidebar_section;
+        section.remove_all();
+        for article in &self.visible_articles {
+            section.append(article.to_sidebar_item());
         }
+
+        let selected = restore_pos.map_or(gtk::INVALID_LIST_POSITION, |pos| pos as u32);
+        self.sidebar.set_selected(selected);
+
+        hide_sidebar_item_chrome(&self.sidebar);
+    }
+}
+
+/// AdwSidebar renders every item as `[icon][title box][suffix]` in a
+/// horizontal box, with the built-in title box set to expand.
+///
+/// Cauldron draws the whole article card through the item's `suffix`, so hide
+/// the built-in icon/title box to keep the card left-aligned and let it use the
+/// full row width.
+fn hide_sidebar_item_chrome(widget: &impl IsA<gtk::Widget>) {
+    let widget = widget.upcast_ref::<gtk::Widget>();
+
+    let mut child = widget.first_child();
+    while let Some(current) = child {
+        if let Ok(row) = current.clone().downcast::<gtk::ListBoxRow>() {
+            if let Some(row_child) = gtk::prelude::ListBoxRowExt::child(&row) {
+                let mut part = row_child.first_child();
+                while let Some(part_widget) = part {
+                    if !part_widget.has_css_class("article-card") {
+                        part_widget.set_visible(false);
+                    }
+                    part = part_widget.next_sibling();
+                }
+            }
+        }
+
+        hide_sidebar_item_chrome(&current);
+        child = current.next_sibling();
     }
 }
 
@@ -799,6 +842,7 @@ async fn get_html(source_url: Option<String>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testing::widget_inspection;
 
     fn make_article(title: &str, id: &str, tags: Vec<String>) -> Article {
         Article {
@@ -811,7 +855,44 @@ mod tests {
         }
     }
 
-    fn filter_by(all_articles: &[Article], query: &str, tag: Option<&str>) -> Vec<ArticleInit> {
+    #[gtk::test]
+    fn test_hide_sidebar_item_chrome_leaves_only_the_card() {
+        let section = adw::SidebarSection::new();
+        let sidebar = adw::Sidebar::new();
+        sidebar.append(section.clone());
+        section.append(make_article("A title", "1", vec![]).to_sidebar_item());
+
+        hide_sidebar_item_chrome(&sidebar);
+
+        let list_box: gtk::ListBox =
+            widget_inspection::find_descendant_by_type(&sidebar).expect("sidebar list box");
+
+        let mut checked_row = false;
+        let mut child = list_box.first_child();
+        while let Some(current) = child {
+            if let Ok(row) = current.clone().downcast::<gtk::ListBoxRow>() {
+                let row_box = gtk::prelude::ListBoxRowExt::child(&row)
+                    .and_then(|w| w.downcast::<gtk::Box>().ok())
+                    .expect("row content box");
+
+                let mut part = row_box.first_child();
+                while let Some(part_widget) = part {
+                    assert_eq!(
+                        part_widget.has_css_class("article-card"),
+                        part_widget.is_visible(),
+                        "only the article card should stay visible in the row"
+                    );
+                    part = part_widget.next_sibling();
+                }
+                checked_row = true;
+            }
+            child = current.next_sibling();
+        }
+
+        assert!(checked_row, "expected a sidebar row");
+    }
+
+    fn filter_by(all_articles: &[Article], query: &str, tag: Option<&str>) -> Vec<Article> {
         all_articles
             .iter()
             .filter(|a| {
@@ -828,14 +909,7 @@ mod tests {
                 }
                 true
             })
-            .map(|a| ArticleInit {
-                title: a.title.clone(),
-                uri: a.uri.clone(),
-                item_id: a.item_id.clone(),
-                description: a.description.clone(),
-                time: a.time,
-                tags: a.tags.clone(),
-            })
+            .cloned()
             .collect()
     }
 

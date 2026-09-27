@@ -1,25 +1,13 @@
 pub mod renderer;
 
-use relm4::adw::{self, prelude::ActionRowExt, ActionRow};
-use relm4::factory::{DynamicIndex, FactoryComponent, FactorySender};
+use relm4::adw;
 use relm4::gtk;
-use relm4::gtk::glib;
 
 use gtk::prelude::*;
 
 use crate::network::instapaper::InstapaperBookmark;
 
 pub use renderer::{ArticleRenderer, ArticleRendererInput};
-
-#[derive(Debug, Clone)]
-pub struct ArticleInit {
-    pub title: String,
-    pub uri: String,
-    pub item_id: String,
-    pub description: String,
-    pub time: f64,
-    pub tags: Vec<String>,
-}
 
 #[derive(Debug, Clone)]
 pub struct Article {
@@ -95,101 +83,78 @@ impl Article {
             format!("{} min read", minutes)
         }
     }
-}
 
-#[derive(Debug)]
-pub enum ArticleOutput {
-    ArticleSelected(String, String, String, String, f64, Vec<String>),
-}
+    /// Subtitle shown in the sidebar row: truncated description (when
+    /// present) plus date and reading time, one per line.
+    fn sidebar_subtitle(&self) -> String {
+        let mut parts = Vec::new();
 
-#[derive(Debug)]
-pub enum ArticleInput {
-    ArticleSelected,
-}
+        let truncated_desc = self.truncated_description();
+        if !truncated_desc.is_empty() {
+            parts.push(truncated_desc);
+        }
 
-#[relm4::factory(pub)]
-impl FactoryComponent for Article {
-    type Init = ArticleInit;
-    type Input = ArticleInput;
-    type Output = ArticleOutput;
-    type CommandOutput = ();
-    type ParentWidget = gtk::ListBox;
+        let metadata = format!("{} · {}", self.format_date(), self.calculate_reading_time());
+        parts.push(metadata);
 
-    view! {
-        #[root]
-        ActionRow::builder()
-            .activatable(true)
-            .selectable(true)
-            .title(&self.title)
-            .subtitle({
-                let mut parts = Vec::new();
+        parts.join("\n")
+    }
 
-                let truncated_desc = self.truncated_description();
-                if !truncated_desc.is_empty() {
-                    parts.push(truncated_desc);
-                }
-
-                let metadata = format!("{} · {}", self.format_date(), self.calculate_reading_time());
-                parts.push(metadata);
-
-                glib::markup_escape_text(&parts.join("\n"))
+    /// One `.pill` label per tag.
+    fn sidebar_tag_pills(&self) -> Vec<gtk::Label> {
+        self.tags
+            .iter()
+            .map(|tag| {
+                let pill = gtk::Label::new(Some(&format!("#{}", tag)));
+                pill.add_css_class("pill");
+                pill.set_halign(gtk::Align::Start);
+                pill
             })
-            .build() {
-            connect_activated => ArticleInput::ArticleSelected,
+            .collect()
+    }
 
-            #[name(tag_box)]
-            add_suffix = &adw::WrapBox::new() {
-                set_valign: gtk::Align::Center,
-                set_halign: gtk::Align::Start,
+    /// Builds the `AdwSidebarItem` used for this article in the sidebar.
+    ///
+    /// The whole card is rendered through the item's `suffix` because
+    /// `AdwSidebarItem` always ellipsizes its built-in title/subtitle to a
+    /// single line. Using our own labels lets the title wrap and the tags sit
+    /// under the metadata; `App` hides the built-in title box so the card can
+    /// span the full row width.
+    pub fn to_sidebar_item(&self) -> adw::SidebarItem {
+        let card = gtk::Box::new(gtk::Orientation::Vertical, 6);
+        card.add_css_class("article-card");
+        card.set_hexpand(true);
+
+        let title = gtk::Label::new(Some(&self.title));
+        title.add_css_class("article-card-title");
+        title.set_xalign(0.0);
+        title.set_wrap(true);
+        title.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+        card.append(&title);
+
+        let subtitle_text = self.sidebar_subtitle();
+        let subtitle = gtk::Label::new(Some(&subtitle_text));
+        subtitle.add_css_class("article-card-subtitle");
+        subtitle.set_xalign(0.0);
+        subtitle.set_wrap(true);
+        subtitle.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+        card.append(&subtitle);
+
+        if !self.tags.is_empty() {
+            let tags_box = adw::WrapBox::new();
+            tags_box.set_halign(gtk::Align::Fill);
+            tags_box.set_hexpand(true);
+            for pill in self.sidebar_tag_pills() {
+                tags_box.append(&pill);
             }
-        }
-    }
-
-    fn init_widgets(
-        &mut self,
-        _index: &Self::Index,
-        root: Self::Root,
-        _returned_widget: &<Self::ParentWidget as relm4::factory::FactoryView>::ReturnedWidget,
-        sender: FactorySender<Self>,
-    ) -> Self::Widgets {
-        let widgets = view_output!();
-
-        for tag in &self.tags {
-            let pill = gtk::Label::new(Some(&format!("#{}", tag)));
-            pill.add_css_class("pill");
-            pill.set_halign(gtk::Align::Start);
-            widgets.tag_box.append(&pill);
+            card.append(&tags_box);
         }
 
-        widgets
-    }
-
-    fn init_model(init: Self::Init, _index: &DynamicIndex, _sender: FactorySender<Self>) -> Self {
-        Self {
-            title: init.title,
-            uri: init.uri,
-            item_id: init.item_id,
-            description: init.description,
-            time: init.time,
-            tags: init.tags,
-        }
-    }
-
-    fn update(&mut self, msg: Self::Input, sender: FactorySender<Self>) {
-        match msg {
-            ArticleInput::ArticleSelected => {
-                sender
-                    .output(ArticleOutput::ArticleSelected(
-                        self.title.clone(),
-                        self.uri.clone(),
-                        self.item_id.clone(),
-                        self.description.clone(),
-                        self.time,
-                        self.tags.clone(),
-                    ))
-                    .unwrap();
-            }
-        }
+        adw::SidebarItem::builder()
+            .title(&self.title)
+            .subtitle(subtitle_text)
+            .suffix(&card)
+            .build()
     }
 }
 
@@ -222,7 +187,18 @@ mod tests {
     use std::collections::HashMap;
 
     use super::*;
-    use crate::testing::FactoryComponentTester;
+    use crate::testing::widget_inspection;
+
+    fn make_article(title: &str, id: &str, tags: Vec<String>) -> Article {
+        Article {
+            title: title.to_string(),
+            uri: format!("https://example.com/{}", id),
+            item_id: id.to_string(),
+            description: format!("About {}", title),
+            time: 1234567890.0,
+            tags,
+        }
+    }
 
     #[test]
     fn test_parse_instapaper_response() {
@@ -298,126 +274,68 @@ mod tests {
         assert_eq!(articles[0].tags, vec!["Rust", "Programming"]);
     }
 
-    #[gtk::test]
-    fn test_init_model() {
-        let mut tester = FactoryComponentTester::<Article>::new(gtk::ListBox::default());
-
-        let index = tester.init(ArticleInit {
-            title: "Test Article".to_owned(),
-            uri: "https://example.com".to_owned(),
-            item_id: "123".to_owned(),
-            description: "A test article".to_owned(),
-            time: 1234567890.0,
-            tags: vec![],
-        });
-
-        tester.get(index, |article: &Article| {
-            assert_eq!(article.title, "Test Article");
-            assert_eq!(article.uri, "https://example.com");
-            assert_eq!(article.item_id, "123");
-            assert_eq!(article.description, "A test article");
-            assert_eq!(article.time, 1234567890.0);
-        });
-    }
-
-    #[gtk::test]
-    fn test_article_selected() {
-        let mut tester = FactoryComponentTester::<Article>::new(gtk::ListBox::default());
-
-        let index = tester.init(ArticleInit {
-            title: "Test Article".to_owned(),
-            uri: "https://example.com".to_owned(),
-            item_id: "123".to_owned(),
-            description: "A test article".to_owned(),
-            time: 1234567890.0,
-            tags: vec![],
-        });
-
-        // Send ArticleSelected input
-        tester.send_input(index, ArticleInput::ArticleSelected);
-        tester.process_events();
-
-        // Note: Output capture doesn't work reliably in test contexts,
-        // so we only verify the component state remains unchanged
-        tester.get(index, |article: &Article| {
-            assert_eq!(article.title, "Test Article");
-            assert_eq!(article.uri, "https://example.com");
-            assert_eq!(article.item_id, "123");
-        });
-    }
-
-    #[gtk::test]
+    #[test]
     fn test_format_date() {
-        let mut tester = FactoryComponentTester::<Article>::new(gtk::ListBox::default());
-
-        // Test with zero timestamp
-        let index = tester.init(ArticleInit {
-            title: "Test".to_owned(),
-            uri: "https://example.com".to_owned(),
-            item_id: "1".to_owned(),
-            description: "".to_owned(),
+        let unknown = Article {
+            title: "Test".to_string(),
+            uri: "https://example.com/1".to_string(),
+            item_id: "1".to_string(),
+            description: "".to_string(),
             time: 0.0,
             tags: vec![],
-        });
+        };
+        assert_eq!(unknown.format_date(), "Unknown date");
 
-        tester.get(index, |article: &Article| {
-            assert_eq!(article.format_date(), "Unknown date");
-        });
+        let recent_time = chrono::Utc::now().timestamp() as f64;
+        let recent = Article {
+            title: "Test".to_string(),
+            uri: "https://example.com/1".to_string(),
+            item_id: "1".to_string(),
+            description: "".to_string(),
+            time: recent_time,
+            tags: vec![],
+        };
+        assert_eq!(recent.format_date(), "Today");
     }
 
-    #[gtk::test]
+    #[test]
     fn test_calculate_reading_time() {
-        let mut tester = FactoryComponentTester::<Article>::new(gtk::ListBox::default());
-
-        // Create an article with zero words (empty title and description)
-        // This should give "< 1 min read"
-        let index = tester.init(ArticleInit {
+        // Zero words (empty title and description) -> "< 1 min read"
+        let empty = Article {
             title: "".to_owned(),
-            uri: "https://example.com".to_owned(),
+            uri: "https://example.com/1".to_owned(),
             item_id: "1".to_owned(),
             description: "".to_owned(),
             time: 0.0,
             tags: vec![],
-        });
+        };
+        assert_eq!(empty.calculate_reading_time(), "< 1 min read");
 
-        tester.get(index, |article: &Article| {
-            assert_eq!(article.calculate_reading_time(), "< 1 min read");
-        });
-
-        // Test with exactly 1 word
-        let index2 = tester.init(ArticleInit {
+        // Exactly one word -> "1 min read"
+        let one_word = Article {
             title: "Word".to_owned(),
-            uri: "https://example.com".to_owned(),
+            uri: "https://example.com/2".to_owned(),
             item_id: "2".to_owned(),
             description: "".to_owned(),
             time: 0.0,
             tags: vec![],
-        });
+        };
+        assert_eq!(one_word.calculate_reading_time(), "1 min read");
 
-        tester.get(index2, |article: &Article| {
-            assert_eq!(article.calculate_reading_time(), "1 min read");
-        });
-
-        // Test with more words (approximately 200 words would still be 1 min due to rounding)
-        let long_description = "word ".repeat(199);
-        let index3 = tester.init(ArticleInit {
+        // ~200 words still rounds to "1 min read"
+        let long = Article {
             title: "".to_owned(),
-            uri: "https://example.com".to_owned(),
+            uri: "https://example.com/3".to_owned(),
             item_id: "3".to_owned(),
-            description: long_description,
+            description: "word ".repeat(199),
             time: 0.0,
             tags: vec![],
-        });
-
-        tester.get(index3, |article: &Article| {
-            assert_eq!(article.calculate_reading_time(), "1 min read");
-        });
+        };
+        assert_eq!(long.calculate_reading_time(), "1 min read");
     }
 
-    #[gtk::test]
+    #[test]
     fn test_truncated_description_with_multibyte_char_at_boundary() {
-        let mut tester = FactoryComponentTester::<Article>::new(gtk::ListBox::default());
-
         // Build a description where a multi-byte character spans the 100-byte boundary.
         // '\u{a0}' (non-breaking space) is 2 bytes in UTF-8 (0xC2 0xA0).
         // Place it so bytes 99..101 contain '\u{a0}', making byte index 100 not a char boundary.
@@ -425,126 +343,94 @@ mod tests {
         desc.push('\u{a0}'); // bytes 99..101
         desc.push_str(&"b".repeat(10)); // pad to exceed 100 bytes total
 
-        let index = tester.init(ArticleInit {
+        let article = Article {
             title: "Test".to_owned(),
-            uri: "https://example.com".to_owned(),
+            uri: "https://example.com/1".to_owned(),
             item_id: "1".to_owned(),
             description: desc.clone(),
             time: 0.0,
             tags: vec![],
-        });
+        };
 
         // This should not panic and should produce a valid truncated string
-        tester.get(index, |article: &Article| {
-            let result = article.truncated_description();
-            assert!(result.ends_with("..."));
-            assert!(result.len() <= 103); // at most 100 bytes of content + "..."
+        let result = article.truncated_description();
+        assert!(result.ends_with("..."));
+        assert!(result.len() <= 103); // at most 100 bytes of content + "..."
 
-            // Verify it's valid UTF-8 (it is, since it's a String, but also check char boundary)
-            assert!(result.is_char_boundary(result.len() - 3));
-        });
+        // Verify it ends at a valid char boundary
+        assert!(result.is_char_boundary(result.len() - 3));
     }
 
-    #[gtk::test]
-    fn test_article_widget_introspection() {
-        let mut tester = FactoryComponentTester::<Article>::new(gtk::ListBox::default());
+    #[test]
+    fn test_sidebar_subtitle_contains_description_and_metadata() {
+        let article = make_article("Test Article", "1", vec![]);
 
-        // Initialize multiple articles
-        tester.init(ArticleInit {
-            title: "First Article".to_owned(),
-            uri: "https://example.com/first".to_owned(),
+        let subtitle = article.sidebar_subtitle();
+        assert!(subtitle.contains("About Test Article"));
+        assert!(subtitle.contains('·'));
+        assert!(subtitle.contains("min read"));
+    }
+
+    #[test]
+    fn test_sidebar_subtitle_without_description_only_has_metadata() {
+        let article = Article {
+            title: "No Description".to_owned(),
+            uri: "https://example.com/1".to_owned(),
             item_id: "1".to_owned(),
-            description: "First article description".to_owned(),
-            time: 1234567890.0,
-            tags: vec![],
-        });
-
-        tester.init(ArticleInit {
-            title: "Second Article".to_owned(),
-            uri: "https://example.com/second".to_owned(),
-            item_id: "2".to_owned(),
-            description: "Second article description".to_owned(),
-            time: 1234567900.0,
-            tags: vec![],
-        });
-
-        tester.init(ArticleInit {
-            title: "Third Article".to_owned(),
-            uri: "https://example.com/third".to_owned(),
-            item_id: "3".to_owned(),
-            description: "Third article description".to_owned(),
-            time: 1234567910.0,
-            tags: vec![],
-        });
-
-        tester.process_events();
-
-        // Deep assertions: Test that all three articles are rendered
-        assert_eq!(tester.count_factory_children(), 3);
-
-        // Find all ActionRow widgets (one per article)
-        let action_rows: Vec<relm4::adw::ActionRow> = tester.find_all_widgets_by_type();
-        assert_eq!(action_rows.len(), 3);
-
-        // Verify that we can find articles by their title
-        // Note: ActionRow titles are stored internally, so we test the component state instead
-        assert!(tester.find_label_containing_text("First Article").is_some());
-        assert!(tester
-            .find_label_containing_text("Second Article")
-            .is_some());
-        assert!(tester.find_label_containing_text("Third Article").is_some());
-
-        // Collect all children to verify the structure
-        let all_children = tester.collect_factory_children();
-        assert_eq!(all_children.len(), 3, "Should have 3 article rows");
-    }
-
-    #[gtk::test]
-    fn test_article_widget_introspection_single() {
-        let mut tester = FactoryComponentTester::<Article>::new(gtk::ListBox::default());
-
-        // Test with a single article
-        tester.init(ArticleInit {
-            title: "My Article Title".to_owned(),
-            uri: "https://example.com/my-article".to_owned(),
-            item_id: "42".to_owned(),
-            description: "This is a great article about testing".to_owned(),
-            time: 1234567890.0,
-            tags: vec![],
-        });
-
-        tester.process_events();
-
-        // Verify exactly one child
-        assert_eq!(tester.count_factory_children(), 1);
-
-        // Find the ActionRow
-        let action_row: Option<relm4::adw::ActionRow> = tester.find_widget_by_type();
-        assert!(action_row.is_some(), "Should find the ActionRow widget");
-
-        // Verify we can find the article's content
-        assert!(tester
-            .find_label_containing_text("My Article Title")
-            .is_some());
-    }
-
-    #[gtk::test]
-    fn test_tags_render_as_pills() {
-        let mut tester = FactoryComponentTester::<Article>::new(gtk::ListBox::default());
-
-        tester.init(ArticleInit {
-            title: "Tagged Article".to_owned(),
-            uri: "https://example.com/tagged".to_owned(),
-            item_id: "1".to_owned(),
-            description: "A tagged article".to_owned(),
+            description: "".to_owned(),
             time: 0.0,
-            tags: vec!["Rust".to_owned(), "UI".to_owned()],
-        });
+            tags: vec![],
+        };
 
-        tester.process_events();
+        let subtitle = article.sidebar_subtitle();
+        assert!(!subtitle.contains("No Description"));
+        assert!(subtitle.contains("Unknown date"));
+    }
 
-        // One `.pill` widget per tag
-        let pills = tester.find_all_widgets_by_css_class("pill");
+    #[gtk::test]
+    fn test_to_sidebar_item_renders_wrapping_card() {
+        let article = make_article("Test Article", "1", vec![]);
+        let item = article.to_sidebar_item();
+
+        // The item keeps title/subtitle for semantics, but the card rendered
+        // through the suffix is what is actually shown.
+        let title: String = item.property_value("title").get().unwrap();
+        assert_eq!(title, "Test Article");
+
+        let card: gtk::Widget = item.property_value("suffix").get().unwrap();
+        assert!(card.has_css_class("article-card"));
+
+        let title_label =
+            widget_inspection::find_descendant_by_css_class(&card, "article-card-title")
+                .expect("card should render a title label")
+                .downcast::<gtk::Label>()
+                .unwrap();
+        assert_eq!(title_label.text(), "Test Article");
+        assert!(
+            title_label.wraps(),
+            "title should wrap instead of being ellipsized"
+        );
+
+        let subtitle_label =
+            widget_inspection::find_descendant_by_css_class(&card, "article-card-subtitle")
+                .expect("card should render a subtitle label")
+                .downcast::<gtk::Label>()
+                .unwrap();
+        assert!(subtitle_label.text().contains("About Test Article"));
+        assert!(subtitle_label.text().contains("min read"));
+    }
+
+    #[gtk::test]
+    fn test_to_sidebar_item_renders_tag_pills() {
+        let article = make_article(
+            "Tagged Article",
+            "1",
+            vec!["Rust".to_owned(), "UI".to_owned()],
+        );
+        let item = article.to_sidebar_item();
+
+        let suffix: gtk::Widget = item.property_value("suffix").get().unwrap();
+        let pills = widget_inspection::find_all_descendants_by_css_class(&suffix, "pill");
         assert_eq!(pills.len(), 2, "Should render one pill per tag");
 
         let pill_texts: Vec<String> = pills
@@ -554,91 +440,17 @@ mod tests {
             .collect();
         assert!(pill_texts.contains(&"#Rust".to_string()));
         assert!(pill_texts.contains(&"#UI".to_string()));
-
-        // Tags must no longer be flattened into the row subtitle
-        let row = tester
-            .find_widget_by_type::<relm4::adw::ActionRow>()
-            .expect("ActionRow should exist");
-        let subtitle = row.subtitle().unwrap_or_default();
-        assert!(
-            !subtitle.contains("#Rust"),
-            "subtitle should not contain flattened tags"
-        );
-        assert!(!subtitle.contains("#UI"));
     }
 
     #[gtk::test]
-    fn test_article_without_tags_has_no_pills() {
-        let mut tester = FactoryComponentTester::<Article>::new(gtk::ListBox::default());
+    fn test_to_sidebar_item_without_tags_has_no_pills() {
+        let article = make_article("Untagged Article", "2", vec![]);
+        let item = article.to_sidebar_item();
 
-        tester.init(ArticleInit {
-            title: "Untagged Article".to_owned(),
-            uri: "https://example.com/untagged".to_owned(),
-            item_id: "2".to_owned(),
-            description: "No tags here".to_owned(),
-            time: 0.0,
-            tags: vec![],
-        });
-
-        tester.process_events();
-
+        let suffix: gtk::Widget = item.property_value("suffix").get().unwrap();
         assert!(
-            tester.find_all_widgets_by_css_class("pill").is_empty(),
+            widget_inspection::find_all_descendants_by_css_class(&suffix, "pill").is_empty(),
             "Articles without tags should not render any pills"
-        );
-    }
-
-    #[gtk::test]
-    fn test_pills_update_after_list_rebuild() {
-        use relm4::factory::FactoryVecDeque;
-
-        let list_box = gtk::ListBox::default();
-        let (output_sender, _output_receiver) = flume::unbounded();
-        let output_sender_relm: relm4::Sender<ArticleOutput> = output_sender.into();
-        let mut factory = FactoryVecDeque::<Article>::builder()
-            .launch(list_box.clone())
-            .forward(&output_sender_relm, |msg| msg);
-
-        let push_article =
-            |factory: &mut FactoryVecDeque<Article>, title: &str, tags: Vec<String>| {
-                factory.guard().push_back(ArticleInit {
-                    title: title.to_owned(),
-                    uri: format!("https://example.com/{}", title.to_lowercase()),
-                    item_id: title.to_owned(),
-                    description: format!("Description for {}", title),
-                    time: 0.0,
-                    tags,
-                });
-            };
-        let pill_texts = |list_box: &gtk::ListBox| -> Vec<String> {
-            crate::testing::widget_inspection::find_all_descendants_by_css_class(list_box, "pill")
-                .into_iter()
-                .filter_map(|w| w.dynamic_cast::<gtk::Label>().ok())
-                .map(|label| label.text().to_string())
-                .collect()
-        };
-
-        push_article(&mut factory, "One", vec!["Old".to_owned()]);
-        while gtk::glib::MainContext::default().iteration(false) {}
-
-        assert_eq!(pill_texts(&list_box), vec!["#Old".to_string()]);
-
-        // Simulate a list rebuild (e.g. tag filter change): the factory is
-        // cleared and re-populated, so rows (and their pills) are rebuilt
-        factory.guard().clear();
-        push_article(
-            &mut factory,
-            "Two",
-            vec!["New".to_owned(), "Fresh".to_owned()],
-        );
-        while gtk::glib::MainContext::default().iteration(false) {}
-
-        let mut texts = pill_texts(&list_box);
-        texts.sort();
-        assert_eq!(texts, vec!["#Fresh".to_string(), "#New".to_string()]);
-        assert!(
-            !texts.contains(&"#Old".to_string()),
-            "Pills from the previous row should be gone after the rebuild"
         );
     }
 }

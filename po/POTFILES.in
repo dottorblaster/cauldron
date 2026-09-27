@@ -2,7 +2,6 @@
 data/it.dottorblaster.cauldron.desktop.in.in
 data/it.dottorblaster.cauldron.gschema.xml.in
 data/it.dottorblaster.cauldron.metainfo.xml.in.in
-data/resources/ui/shortcuts.ui
 
 # Rust source files with gettext() calls
 src/main.rs

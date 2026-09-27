@@ -1,19 +1,19 @@
 use relm4::{
     abstractions::Toaster,
     actions::{RelmAction, RelmActionGroup},
-    adw,
+    adw::{self, prelude::AdwDialogExt},
     factory::FactoryVecDeque,
     gtk, main_application, Component, ComponentController, ComponentParts, ComponentSender,
     Controller,
 };
 
 use gtk::prelude::{
-    ApplicationExt, ApplicationWindowExt, ButtonExt, Cast, EditableExt, GtkWindowExt, ListModelExt,
+    ApplicationExt, ButtonExt, Cast, EditableExt, GtkApplicationExt, GtkWindowExt, ListModelExt,
     OrientableExt, SettingsExt, WidgetExt,
 };
 use gtk::{gio, glib};
 
-use gettextrs::gettext;
+use gettextrs::{gettext, pgettext};
 
 use crate::article::{Article, ArticleInit, ArticleOutput, ArticleRenderer, ArticleRendererInput};
 use crate::config::{APP_ID, PROFILE};
@@ -112,16 +112,6 @@ impl Component for App {
             connect_close_request[sender] => move |_| {
                 sender.input(AppMsg::Quit);
                 glib::Propagation::Stop
-            },
-
-            #[wrap(Some)]
-            set_help_overlay: shortcuts = &gtk::Builder::from_resource(
-                    "/it/dottorblaster/cauldron/gtk/help-overlay.ui"
-                )
-                .object::<gtk::ShortcutsWindow>("help_overlay")
-                .unwrap() -> gtk::ShortcutsWindow {
-                    set_transient_for: Some(&main_window),
-                    set_application: Some(&main_application()),
             },
 
             add_css_class?: if PROFILE == "Devel" {
@@ -385,9 +375,9 @@ impl Component for App {
         let mut actions = RelmActionGroup::<WindowActionGroup>::new();
 
         let shortcuts_action = {
-            let shortcuts = widgets.shortcuts.clone();
+            let main_window = widgets.main_window.clone();
             RelmAction::<ShortcutsAction>::new_stateless(move |_| {
-                shortcuts.present();
+                build_shortcuts_dialog().present(Some(&main_window));
             })
         };
 
@@ -408,6 +398,8 @@ impl Component for App {
         actions.add_action(about_action);
         actions.add_action(logout_action);
         actions.register_for_widget(&widgets.main_window);
+
+        main_application().set_accels_for_action("win.show-help-overlay", &["<Control>question"]);
 
         widgets.load_window_size();
 
@@ -765,6 +757,23 @@ impl AppWidgets {
             self.main_window.maximize();
         }
     }
+}
+
+fn build_shortcuts_dialog() -> adw::ShortcutsDialog {
+    let dialog = adw::ShortcutsDialog::new();
+
+    let general = adw::ShortcutsSection::new(Some(&pgettext("shortcut window", "General")));
+    general.add(adw::ShortcutsItem::from_action(
+        &pgettext("shortcut window", "Show Shortcuts"),
+        "win.show-help-overlay",
+    ));
+    general.add(adw::ShortcutsItem::from_action(
+        &pgettext("shortcut window", "Quit"),
+        "app.quit",
+    ));
+    dialog.add(general);
+
+    dialog
 }
 
 async fn get_html(source_url: Option<String>) -> String {

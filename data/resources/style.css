@@ -3,6 +3,16 @@
   font-weight: bold;
 }
 
+/* Article card in the sidebar */
+.article-card {
+  padding: 3px 0;
+}
+
+.article-card-subtitle {
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+
 .pill {
   border-radius: 999px;
   padding: 2px 10px;

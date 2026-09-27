@@ -100,7 +100,7 @@ impl Article {
         parts.join("\n")
     }
 
-    /// One `.pill` label per tag, rendered in the row suffix.
+    /// One `.pill` label per tag.
     fn sidebar_tag_pills(&self) -> Vec<gtk::Label> {
         self.tags
             .iter()
@@ -114,18 +114,46 @@ impl Article {
     }
 
     /// Builds the `AdwSidebarItem` used for this article in the sidebar.
+    ///
+    /// The whole card is rendered through the item's `suffix` because
+    /// `AdwSidebarItem` always ellipsizes its built-in title/subtitle to a
+    /// single line. Using our own labels lets the title wrap and the tags sit
+    /// under the metadata; `App` hides the built-in title box so the card can
+    /// span the full row width.
     pub fn to_sidebar_item(&self) -> adw::SidebarItem {
-        let tags_box = adw::WrapBox::new();
-        tags_box.set_valign(gtk::Align::Center);
-        tags_box.set_halign(gtk::Align::Start);
-        for pill in self.sidebar_tag_pills() {
-            tags_box.append(&pill);
+        let card = gtk::Box::new(gtk::Orientation::Vertical, 6);
+        card.add_css_class("article-card");
+        card.set_hexpand(true);
+
+        let title = gtk::Label::new(Some(&self.title));
+        title.add_css_class("article-card-title");
+        title.set_xalign(0.0);
+        title.set_wrap(true);
+        title.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+        card.append(&title);
+
+        let subtitle_text = self.sidebar_subtitle();
+        let subtitle = gtk::Label::new(Some(&subtitle_text));
+        subtitle.add_css_class("article-card-subtitle");
+        subtitle.set_xalign(0.0);
+        subtitle.set_wrap(true);
+        subtitle.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+        card.append(&subtitle);
+
+        if !self.tags.is_empty() {
+            let tags_box = adw::WrapBox::new();
+            tags_box.set_halign(gtk::Align::Fill);
+            tags_box.set_hexpand(true);
+            for pill in self.sidebar_tag_pills() {
+                tags_box.append(&pill);
+            }
+            card.append(&tags_box);
         }
 
         adw::SidebarItem::builder()
             .title(&self.title)
-            .subtitle(self.sidebar_subtitle())
-            .suffix(&tags_box)
+            .subtitle(subtitle_text)
+            .suffix(&card)
             .build()
     }
 }
@@ -360,16 +388,36 @@ mod tests {
     }
 
     #[gtk::test]
-    fn test_to_sidebar_item_title_and_subtitle() {
+    fn test_to_sidebar_item_renders_wrapping_card() {
         let article = make_article("Test Article", "1", vec![]);
         let item = article.to_sidebar_item();
 
+        // The item keeps title/subtitle for semantics, but the card rendered
+        // through the suffix is what is actually shown.
         let title: String = item.property_value("title").get().unwrap();
         assert_eq!(title, "Test Article");
 
-        let subtitle: String = item.property_value("subtitle").get().unwrap();
-        assert!(subtitle.contains("About Test Article"));
-        assert!(subtitle.contains("min read"));
+        let card: gtk::Widget = item.property_value("suffix").get().unwrap();
+        assert!(card.has_css_class("article-card"));
+
+        let title_label =
+            widget_inspection::find_descendant_by_css_class(&card, "article-card-title")
+                .expect("card should render a title label")
+                .downcast::<gtk::Label>()
+                .unwrap();
+        assert_eq!(title_label.text(), "Test Article");
+        assert!(
+            title_label.wraps(),
+            "title should wrap instead of being ellipsized"
+        );
+
+        let subtitle_label =
+            widget_inspection::find_descendant_by_css_class(&card, "article-card-subtitle")
+                .expect("card should render a subtitle label")
+                .downcast::<gtk::Label>()
+                .unwrap();
+        assert!(subtitle_label.text().contains("About Test Article"));
+        assert!(subtitle_label.text().contains("min read"));
     }
 
     #[gtk::test]

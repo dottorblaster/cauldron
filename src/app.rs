@@ -7,8 +7,8 @@ use relm4::{
 };
 
 use gtk::prelude::{
-    ApplicationExt, ButtonExt, Cast, EditableExt, GtkApplicationExt, GtkWindowExt, ListModelExt,
-    OrientableExt, SettingsExt, WidgetExt,
+    ApplicationExt, ButtonExt, Cast, EditableExt, GtkApplicationExt, GtkWindowExt, IsA,
+    ListModelExt, OrientableExt, SettingsExt, WidgetExt,
 };
 use gtk::{gio, glib};
 
@@ -741,6 +741,36 @@ impl App {
 
         let selected = restore_pos.map_or(gtk::INVALID_LIST_POSITION, |pos| pos as u32);
         self.sidebar.set_selected(selected);
+
+        hide_sidebar_item_chrome(&self.sidebar);
+    }
+}
+
+/// AdwSidebar renders every item as `[icon][title box][suffix]` in a
+/// horizontal box, with the built-in title box set to expand.
+///
+/// Cauldron draws the whole article card through the item's `suffix`, so hide
+/// the built-in icon/title box to keep the card left-aligned and let it use the
+/// full row width.
+fn hide_sidebar_item_chrome(widget: &impl IsA<gtk::Widget>) {
+    let widget = widget.upcast_ref::<gtk::Widget>();
+
+    let mut child = widget.first_child();
+    while let Some(current) = child {
+        if let Ok(row) = current.clone().downcast::<gtk::ListBoxRow>() {
+            if let Some(row_child) = gtk::prelude::ListBoxRowExt::child(&row) {
+                let mut part = row_child.first_child();
+                while let Some(part_widget) = part {
+                    if !part_widget.has_css_class("article-card") {
+                        part_widget.set_visible(false);
+                    }
+                    part = part_widget.next_sibling();
+                }
+            }
+        }
+
+        hide_sidebar_item_chrome(&current);
+        child = current.next_sibling();
     }
 }
 
@@ -812,6 +842,7 @@ async fn get_html(source_url: Option<String>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testing::widget_inspection;
 
     fn make_article(title: &str, id: &str, tags: Vec<String>) -> Article {
         Article {
@@ -822,6 +853,43 @@ mod tests {
             time: 0.0,
             tags,
         }
+    }
+
+    #[gtk::test]
+    fn test_hide_sidebar_item_chrome_leaves_only_the_card() {
+        let section = adw::SidebarSection::new();
+        let sidebar = adw::Sidebar::new();
+        sidebar.append(section.clone());
+        section.append(make_article("A title", "1", vec![]).to_sidebar_item());
+
+        hide_sidebar_item_chrome(&sidebar);
+
+        let list_box: gtk::ListBox =
+            widget_inspection::find_descendant_by_type(&sidebar).expect("sidebar list box");
+
+        let mut checked_row = false;
+        let mut child = list_box.first_child();
+        while let Some(current) = child {
+            if let Ok(row) = current.clone().downcast::<gtk::ListBoxRow>() {
+                let row_box = gtk::prelude::ListBoxRowExt::child(&row)
+                    .and_then(|w| w.downcast::<gtk::Box>().ok())
+                    .expect("row content box");
+
+                let mut part = row_box.first_child();
+                while let Some(part_widget) = part {
+                    assert_eq!(
+                        part_widget.has_css_class("article-card"),
+                        part_widget.is_visible(),
+                        "only the article card should stay visible in the row"
+                    );
+                    part = part_widget.next_sibling();
+                }
+                checked_row = true;
+            }
+            child = current.next_sibling();
+        }
+
+        assert!(checked_row, "expected a sidebar row");
     }
 
     fn filter_by(all_articles: &[Article], query: &str, tag: Option<&str>) -> Vec<Article> {

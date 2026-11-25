@@ -24,7 +24,7 @@ url = "2.5.8"
 urlencoding = "2.1"
 flume = "0.12.0"
 scraper = "0.27.0"
-html-escape = "0.2"
+html-escape = "0.3"
 chrono = "0.4"
 
 [dev-dependencies]
